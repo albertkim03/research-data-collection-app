@@ -40,17 +40,7 @@ export default async function SectionsPage() {
 
   return (
     <main className="min-h-screen bg-gradient-to-b from-slate-50 to-white">
-      <nav className="border-b border-border bg-white shadow-sm sticky top-0 z-50">
-        <div className="max-w-4xl mx-auto px-4 py-4 flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-primary">Research Study</h1>
-            <p className="text-sm text-muted">Sections</p>
-          </div>
-          <Link href="/auth/logout">
-            <Button variant="outline">Logout</Button>
-          </Link>
-        </div>
-      </nav>
+
 
       <div className="max-w-4xl mx-auto px-4 py-12">
         <div className="mb-10">
@@ -98,13 +88,6 @@ export default async function SectionsPage() {
             ))}
         </div>
       </div>
-
-      <footer className="mt-16 border-t border-border bg-slate-50 py-8">
-        <div className="max-w-4xl mx-auto px-4 text-center text-sm text-muted">
-          <p className="mb-2 font-semibold">UNSW Research Study</p>
-          <p>For questions or concerns, contact: research@unsw.edu.au</p>
-        </div>
-      </footer>
     </main>
   )
 }

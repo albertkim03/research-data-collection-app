@@ -12,7 +12,7 @@ export default function SignUpSuccessPage() {
           </p>
         </div>
         <Link href="/auth/login">
-          <Button className="w-full bg-primary hover:bg-primary-light">Back to Login</Button>
+          <Button className="w-full bg-primary hover:bg-primary-light hover:cursor-pointer">Back to Login</Button>
         </Link>
       </div>
     </div>

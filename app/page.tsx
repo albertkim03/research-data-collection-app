@@ -1,29 +1,49 @@
-import { createClient } from "@/lib/supabase/server"
-import { redirect } from "next/navigation"
+"use client"
+
+import { useEffect, useState } from "react"
 import Link from "next/link"
+import { usePathname, useRouter } from "next/navigation"
+import { createClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
+import { Lock, LockOpen } from "lucide-react"
 
-export default async function HomePage() {
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+// ---------- Section Unlock Logic ----------
+interface SectionUnlockStatus {
+  section1: boolean
+  section2: boolean
+  section3: boolean
+}
 
-  if (!user) {
-    redirect("/auth/login")
+// ---------- Main Home Page ----------
+export default function HomePage() {
+  const router = useRouter()
+  const supabase = createClient()
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    const checkAuth = async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+      if (!user) {
+        router.push("/auth/login")
+      } else {
+        setLoading(false)
+      }
+    }
+    checkAuth()
+  }, [router, supabase])
+
+  if (loading) {
+    return (
+      <main className="min-h-screen flex items-center justify-center text-muted">
+        Loading...
+      </main>
+    )
   }
 
   return (
     <main className="min-h-screen bg-gradient-to-b from-slate-50 to-white">
-      <nav className="border-b border-border bg-white shadow-sm">
-        <div className="max-w-4xl mx-auto px-4 py-4 flex items-center justify-between">
-          <h1 className="text-2xl font-bold text-primary">Research Study</h1>
-          <Link href="/auth/logout">
-            <Button variant="outline">Logout</Button>
-          </Link>
-        </div>
-      </nav>
-
       <div className="max-w-4xl mx-auto px-4 py-16">
         <div className="space-y-8">
           <div className="text-center space-y-4">
@@ -54,23 +74,8 @@ export default async function HomePage() {
               </ol>
             </div>
           </div>
-
-          <div className="text-center">
-            <Link href="/sections">
-              <Button size="lg" className="bg-primary hover:bg-primary-light">
-                Go to Sections
-              </Button>
-            </Link>
-          </div>
         </div>
       </div>
-
-      <footer className="mt-16 border-t border-border bg-slate-50 py-8">
-        <div className="max-w-4xl mx-auto px-4 text-center text-sm text-muted">
-          <p className="mb-2">UNSW Research Study</p>
-          <p>For questions or concerns, contact: research@unsw.edu.au</p>
-        </div>
-      </footer>
     </main>
   )
 }
