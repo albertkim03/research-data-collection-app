@@ -1,70 +1,99 @@
-"use client"
+// components/navbar.tsx
+"use client";
 
-import { useEffect, useState } from "react"
-import Link from "next/link"
-import { usePathname } from "next/navigation"
-import { createClient } from "@/lib/supabase/client"
-import { Button } from "@/components/ui/button"
-import { Lock, LockOpen } from "lucide-react"
+import { useEffect, useState } from "react";
+import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
+import { createClient } from "@/lib/supabase/client";
+import { Button } from "@/components/ui/button";
+import { Lock, LockOpen } from "lucide-react";
 
-interface SectionUnlockStatus {
-  section1: boolean
-  section2: boolean
-  section3: boolean
-}
+type Unlocks = { section1: boolean; section2: boolean; section3: boolean };
 
 export default function Navbar() {
-  const pathname = usePathname()
-  const [unlockedSections, setUnlockedSections] = useState<SectionUnlockStatus>({
+  const pathname = usePathname();
+  const router = useRouter();
+  const supabase = createClient();
+
+  const [loading, setLoading] = useState(true);
+  const [isAuthed, setIsAuthed] = useState(false);
+  const [unlocks, setUnlocks] = useState<Unlocks>({
     section1: false,
     section2: false,
     section3: false,
-  })
-  const supabase = createClient()
+  });
 
   useEffect(() => {
-    const fetchUnlockedSections = async () => {
-      try {
-        const {
-          data: { user },
-        } = await supabase.auth.getUser()
-        if (!user) return
+    let mounted = true;
 
-        const { data, error } = await supabase.from("user_section_access").select("section_id").eq("user_id", user.id)
-        if (error || !data) return
+    const fetchUnlocks = async () => {
+      setLoading(true);
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
 
-        const { data: sections } = await supabase.from("sections").select("id, section_number")
-        const sectionMap = sections?.reduce(
-          (acc, section) => {
-            acc[section.id] = section.section_number
-            return acc
-          },
-          {} as Record<string, number>,
-        )
+      if (!mounted) return;
 
-        const unlocked = { section1: false, section2: false, section3: false }
-        data.forEach((access) => {
-          const num = sectionMap?.[access.section_id]
-          if (num === 1) unlocked.section1 = true
-          if (num === 2) unlocked.section2 = true
-          if (num === 3) unlocked.section3 = true
-        })
-        setUnlockedSections(unlocked)
-      } catch (error) {
-        console.error("Error fetching unlocked sections:", error)
+      if (!user) {
+        setIsAuthed(false);
+        setUnlocks({ section1: false, section2: false, section3: false });
+        setLoading(false);
+        return;
       }
-    }
-    fetchUnlockedSections()
-  }, [supabase])
+      setIsAuthed(true);
+
+      // Ensure a row exists so .single() doesn’t 404
+      await supabase.from("passcode_unlocks").upsert(
+        { user_id: user.id }, // defaults (all false) will be used
+        { onConflict: "user_id" }
+      );
+
+      const { data, error } = await supabase
+        .from("passcode_unlocks")
+        .select("section_1_unlocked, section_2_unlocked, section_3_unlocked")
+        .eq("user_id", user.id)
+        .single();
+
+      if (!mounted) return;
+
+      if (error) {
+        console.error("Failed to fetch passcode_unlocks:", error);
+        setUnlocks({ section1: false, section2: false, section3: false });
+      } else {
+        setUnlocks({
+          section1: !!data?.section_1_unlocked,
+          section2: !!data?.section_2_unlocked,
+          section3: !!data?.section_3_unlocked,
+        });
+      }
+      setLoading(false);
+    };
+
+    fetchUnlocks();
+
+    // Refresh locks when auth state changes (login/logout)
+    const { data: sub } = supabase.auth.onAuthStateChange((event) => {
+      fetchUnlocks();
+      if (event === "SIGNED_OUT" && pathname?.startsWith("/sections")) {
+        router.replace("/");
+      }
+    });
+
+    return () => {
+      mounted = false;
+      sub?.subscription?.unsubscribe();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pathname]);
 
   const navItems = [
     { name: "Home", href: "/", unlocked: true },
-    { name: "Section 1", href: "/sections/1", unlocked: unlockedSections.section1 },
-    { name: "Section 2", href: "/sections/2", unlocked: unlockedSections.section2 },
-    { name: "Section 3", href: "/sections/3", unlocked: unlockedSections.section3 },
-  ]
+    { name: "Section 1", href: "/sections/1", unlocked: unlocks.section1 },
+    { name: "Section 2", href: "/sections/2", unlocked: unlocks.section2 },
+    { name: "Section 3", href: "/sections/3", unlocked: unlocks.section3 },
+  ];
 
-  const isActive = (href: string) => pathname === href
+  const isActive = (href: string) => pathname === href;
 
   return (
     <nav className="border-b border-border bg-white shadow-sm sticky top-0 z-50">
@@ -72,31 +101,44 @@ export default function Navbar() {
         <Link href="/" className="font-bold text-lg text-primary">
           Research Study
         </Link>
+
         <div className="flex gap-2 items-center flex-wrap">
-          {navItems.map((item) => {
-            const active = isActive(item.href)
-            const isSection = item.href !== "/"
-            const isLocked = isSection && !item.unlocked
+          {isAuthed ? (navItems.map((item) => {
+            const active = isActive(item.href);
+            const isSection = item.href !== "/";
+            const isLocked = isSection && !item.unlocked;
+
             return (
               <Link key={item.href} href={item.href} className="inline-block">
                 <Button
                   variant={active ? "default" : "outline"}
-                  className={`gap-2 ${isLocked ? "opacity-60 cursor-not-allowed pointer-events-none" : ""} ${
-                    active ? "bg-primary text-white" : ""
-                  }`}
-                  disabled={isLocked}
+                  className={`gap-2 ${active ? "bg-primary text-white" : ""}`}
+                  aria-label={`${item.name}${isLocked ? " (locked)" : ""}`}
                 >
-                  {isSection && (isLocked ? <Lock className="w-4 h-4" /> : <LockOpen className="w-4 h-4" />)}
+                  {isSection &&
+                    (isLocked ? <Lock className="w-4 h-4" /> : <LockOpen className="w-4 h-4" />)}
                   {item.name}
                 </Button>
               </Link>
-            )
-          })}
-          <Link href="/auth/logout">
-            <Button variant="outline">Logout</Button>
-          </Link>
+            );
+          })) : null}
+
+          {!isAuthed ? (
+            <>
+              <Link href="/auth/login">
+                <Button variant="outline">Login</Button>
+              </Link>
+              <Link href="/auth/sign-up">
+                <Button>Sign up</Button>
+              </Link>
+            </>
+          ) : (
+            <Link href="/auth/logout">
+              <Button variant="outline">{loading ? "…" : "Logout"}</Button>
+            </Link>
+          )}
         </div>
       </div>
     </nav>
-  )
+  );
 }
