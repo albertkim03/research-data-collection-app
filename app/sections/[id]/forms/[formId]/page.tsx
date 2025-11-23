@@ -1,25 +1,33 @@
 import { createClient } from "@/lib/supabase/server";
-import { redirect } from "next/navigation";
+import { redirect, notFound } from "next/navigation";
 import DynamicForm from "@/components/dynamic-form";
 
-export default async function FormPage({ params }: { params: { id: string; formId: string } }) {
-  const supabase = await createClient();
-  const sectionNumber = Number(params.id);
-  const formId = params.formId;
+export const dynamic = "force-dynamic";
 
-  if (Number.isNaN(sectionNumber)) redirect("/sections");
+type Params = { id: string; formId: string };
+
+export default async function FormPage({
+  params,
+}: {
+  params: Promise<Params>;
+}) {
+  const { id, formId } = await params;     // <-- await the promise
+  const sectionNumber = Number(id);
+  if (Number.isNaN(sectionNumber)) notFound();
+
+  const supabase = await createClient();
 
   const {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) redirect("/auth/login");
 
-  // Must be unlocked
+  // must be unlocked
   const { data: pl } = await supabase
     .from("passcode_unlocks")
     .select("section_1_unlocked, section_2_unlocked, section_3_unlocked")
     .eq("user_id", user.id)
-    .single();
+    .maybeSingle();
 
   const unlocked =
     (sectionNumber === 1 && pl?.section_1_unlocked) ||
@@ -28,7 +36,7 @@ export default async function FormPage({ params }: { params: { id: string; formI
 
   if (!unlocked) redirect(`/sections/${sectionNumber}`);
 
-  // Load form
+  // load form
   const { data: form } = await supabase
     .from("forms")
     .select("*")
@@ -38,13 +46,13 @@ export default async function FormPage({ params }: { params: { id: string; formI
 
   if (!form) redirect(`/sections/${sectionNumber}`);
 
-  // Existing response (optional)
+  // existing response (optional)
   const { data: existing } = await supabase
     .from("form_responses")
     .select("*")
     .eq("user_id", user.id)
     .eq("form_id", formId)
-    .single();
+    .maybeSingle();
 
   return (
     <main className="min-h-screen">

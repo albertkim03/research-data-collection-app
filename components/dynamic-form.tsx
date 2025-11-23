@@ -1,104 +1,151 @@
-"use client"
+// components/dynamic-form.tsx
+"use client";
 
-import { useState } from "react"
-import { createClient } from "@/lib/supabase/client"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Textarea } from "@/components/ui/textarea"
-import { Label } from "@/components/ui/label"
-import { Checkbox } from "@/components/ui/checkbox"
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import ConfirmSubmit from "@/components/confirm-submit";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 type Field =
-  | { type: "text"; name: string; label: string; required?: boolean; placeholder?: string }
-  | { type: "textarea"; name: string; label: string; required?: boolean; placeholder?: string }
-  | { type: "checkbox"; name: string; label: string; required?: boolean }
-  | { type: "radio"; name: string; label: string; required?: boolean; options: { value: string; label: string }[] }
+  | { key: string; type: "text"; label: string; required?: boolean }
+  | { key: string; type: "radio"; label: string; options: string[]; required?: boolean }
+  | { key: string; type: "scale"; label: string; min: number; max: number; required?: boolean };
 
 export default function DynamicForm({
   formId,
   sectionNumber,
-  userId,
   schema,
   initialData,
+  locked,
 }: {
-  formId: string
-  sectionNumber: number
-  userId: string
-  schema: { fields: Field[] }
-  initialData: Record<string, any> | null
+  formId: string;
+  sectionNumber: number;
+  schema: { version: number; fields: Field[] };
+  initialData?: Record<string, any> | null;
+  locked?: boolean;
 }) {
-  const supabase = createClient()
-  const [values, setValues] = useState<Record<string, any>>(initialData ?? {})
-  const [saving, setSaving] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [success, setSuccess] = useState(false)
+  const router = useRouter();
+  const [data, setData] = useState<Record<string, any>>(initialData ?? {});
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const onChange = (name: string, v: any) => setValues((s) => ({ ...s, [name]: v }))
+  const disabled = !!locked || saving;
 
-  const onSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setSaving(true); setError(null); setSuccess(false)
-    const { error } = await supabase
-      .from("form_responses")
-      .upsert(
-        { user_id: userId, section_number: sectionNumber, form_id: formId, responses: values },
-        { onConflict: "user_id,form_id" }
-      )
-    if (error) setError(error.message); else setSuccess(true)
-    setSaving(false)
-  }
+  const update = (k: string, v: any) => setData((d) => ({ ...d, [k]: v }));
+
+  const submit = async () => {
+    setSaving(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/forms/${formId}/submit`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          sectionNumber: Number(sectionNumber),
+          responses: data,
+          // pdfBase64: "<optional if you generate a pdf client-side>"
+        }),
+      });
+
+      if (!res.ok) {
+        let msg = `Submit failed (${res.status})`;
+        try {
+          const j = await res.json();
+          if (j?.error) msg = j.error;
+        } catch {}
+        throw new Error(msg);
+      }
+
+      // success
+      router.replace(`/sections/${sectionNumber}`);
+      router.refresh();
+    } catch (e: any) {
+      setError(e?.message ?? "Failed to submit");
+    } finally {
+      setSaving(false);
+    }
+  };
 
   return (
-    <form onSubmit={onSubmit} className="space-y-5">
-      {schema?.fields?.map((f, i) => {
-        switch (f.type) {
-          case "text":
-            return (
-              <div key={i} className="grid gap-2">
-                <Label>{f.label}</Label>
-                <Input required={!!f.required} placeholder={f.placeholder} value={values[f.name] ?? ""}
-                       onChange={(e) => onChange(f.name, e.target.value)} />
-              </div>
-            )
-          case "textarea":
-            return (
-              <div key={i} className="grid gap-2">
-                <Label>{f.label}</Label>
-                <Textarea required={!!f.required} placeholder={f.placeholder} value={values[f.name] ?? ""}
-                          onChange={(e) => onChange(f.name, e.target.value)} />
-              </div>
-            )
-          case "checkbox":
-            return (
-              <div key={i} className="flex items-center gap-2">
-                <Checkbox checked={!!values[f.name]} onCheckedChange={(v) => onChange(f.name, !!v)} />
-                <Label>{f.label}</Label>
-              </div>
-            )
-          case "radio":
-            return (
-              <div key={i} className="grid gap-2">
-                <Label>{f.label}</Label>
-                <RadioGroup value={values[f.name] ?? ""} onValueChange={(v) => onChange(f.name, v)}>
-                  {f.options.map((opt) => (
-                    <div key={opt.value} className="flex items-center gap-2">
-                      <RadioGroupItem value={opt.value} id={`${f.name}-${opt.value}`} />
-                      <Label htmlFor={`${f.name}-${opt.value}`}>{opt.label}</Label>
-                    </div>
-                  ))}
-                </RadioGroup>
-              </div>
-            )
-          default:
-            return null
+    <form className="space-y-6">
+      {schema.fields.map((f) => {
+        if (f.type === "text") {
+          return (
+            <div key={f.key} className="grid gap-2">
+              <Label htmlFor={f.key}>{f.label}</Label>
+              <Input
+                id={f.key}
+                value={data[f.key] ?? ""}
+                onChange={(e) => update(f.key, e.target.value)}
+                required={!!f.required}
+                disabled={disabled}
+              />
+            </div>
+          );
         }
+
+        if (f.type === "radio") {
+          return (
+            <fieldset key={f.key} className="grid gap-2">
+              <legend className="text-sm font-medium">{f.label}</legend>
+              <div className="flex flex-wrap gap-3">
+                {f.options.map((opt, idx) => (
+                  <label key={opt} className="flex items-center gap-2">
+                    <input
+                      type="radio"
+                      name={f.key}
+                      value={opt}
+                      checked={data[f.key] === opt}
+                      onChange={() => update(f.key, opt)}
+                      required={!!f.required && idx === 0}
+                      disabled={disabled}
+                    />
+                    <span className="text-sm">{opt}</span>
+                  </label>
+                ))}
+              </div>
+            </fieldset>
+          );
+        }
+
+        if (f.type === "scale") {
+          const val = data[f.key] ?? Math.round((f.min + f.max) / 2);
+          return (
+            <div key={f.key} className="grid gap-2">
+              <span className="text-sm font-medium">
+                {f.label} ({f.min}–{f.max})
+              </span>
+              <input
+                type="range"
+                min={f.min}
+                max={f.max}
+                value={val}
+                onChange={(e) => update(f.key, Number(e.target.value))}
+                disabled={disabled}
+              />
+              <div className="text-xs text-muted">Selected: {val}</div>
+            </div>
+          );
+        }
+
+        return null;
       })}
+
+      {error && <p className="text-sm text-error">{error}</p>}
+
       <div className="flex items-center gap-3">
-        <Button type="submit" disabled={saving}>{saving ? "Saving..." : "Submit"}</Button>
-        {success && <span className="text-sm text-emerald-600">Saved.</span>}
-        {error && <span className="text-sm text-destructive">{error}</span>}
+        <ConfirmSubmit onConfirm={submit} disabled={disabled} />
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() => setData({})}
+          disabled={disabled}
+        >
+          Clear
+        </Button>
       </div>
     </form>
-  )
+  );
 }

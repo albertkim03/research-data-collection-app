@@ -90,4 +90,17 @@
     /* Force light mode by removing prefers-color-scheme */
     color-scheme: light;
   }
+
+    /* Show pointer on all buttons */
+    button,
+    [role="button"],
+    .btn {
+      @apply cursor-pointer;
+    }
+  
+    /* Respect disabled states */
+    button:disabled,
+    button[aria-disabled="true"] {
+      @apply cursor-not-allowed;
+    }
 }
