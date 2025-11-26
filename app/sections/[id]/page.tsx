@@ -1,3 +1,4 @@
+// app/sections/[id]/page.tsx
 import { createClient } from "@/lib/supabase/server";
 import { redirect, notFound } from "next/navigation";
 import Link from "next/link";
@@ -9,8 +10,18 @@ export const dynamicParams = true;
 
 type PageProps = { params: { id: string } };
 
+// match your DB: digital/pdf + optional pdf_path
+type FormRow = {
+  id: string;
+  title: string;
+  description: string | null;
+  position: number | null;
+  kind?: "digital" | "pdf";
+  pdf_path?: string | null;
+};
+
 export default async function SectionDetail({ params }: PageProps) {
-  const { id } = await params;  
+  const { id } = await params;
   if (!["1", "2", "3"].includes(id)) notFound();
   const sectionNumber = Number(id);
 
@@ -35,12 +46,24 @@ export default async function SectionDetail({ params }: PageProps) {
     (sectionNumber === 2 && pu?.section_2_unlocked) ||
     (sectionNumber === 3 && pu?.section_3_unlocked);
 
+  // ⬇️ include kind (and pdf_path if you want to show a hint/link)
   const { data: forms } = await supabase
     .from("forms")
-    .select("*")
+    .select("id, title, description, position, kind, pdf_path")
     .eq("section_number", sectionNumber)
     .eq("is_active", true)
-    .order("position", { ascending: true });
+    .order("position", { ascending: true }) as unknown as { data: FormRow[] };
+
+  // completion state
+  const { data: submittedRows } = await supabase
+    .from("form_responses")
+    .select("form_id, submitted")
+    .eq("user_id", user.id)
+    .eq("section_number", sectionNumber);
+
+  const submittedSet = new Set(
+    (submittedRows ?? []).filter(r => r.submitted).map(r => r.form_id)
+  );
 
   return (
     <main className="min-h-screen bg-gradient-to-b from-slate-50 to-white">
@@ -60,16 +83,26 @@ export default async function SectionDetail({ params }: PageProps) {
           </div>
         ) : (
           <div className="grid gap-4">
-            {(forms ?? []).map(f => (
-              <div key={f.id} className="border rounded-md p-4 flex items-center justify-between bg-white">
-                <div>
-                  <h3 className="font-semibold">{f.title}</h3>
-                  {f.description && <p className="text-sm text-muted">{f.description}</p>}
+            {(forms ?? []).map((f) => {
+              const done = submittedSet.has(f.id);
+              const isPdf = f.kind === "pdf";
+              return (
+                <div key={f.id} className="border rounded-md p-4 flex items-center justify-between bg-white">
+                  <div>
+                    <h3 className="font-semibold">{f.title}</h3>
+                    {f.description && <p className="text-sm text-muted">{f.description}</p>}
+                    {done && <p className="mt-1 text-xs text-green-700">Submitted</p>}
+                    {isPdf && <p className="mt-1 text-xs text-muted">PDF upload</p>}
+                  </div>
+                  <Link href={`/sections/${sectionNumber}/forms/${f.id}`}>
+                    <Button disabled={done}>Open</Button>
+                  </Link>
                 </div>
-                <Link href={`/sections/${sectionNumber}/forms/${f.id}`}><Button>Open</Button></Link>
-              </div>
-            ))}
-            {(!forms || forms.length === 0) && <p className="text-sm text-muted">No forms are available yet for this section.</p>}
+              );
+            })}
+            {(!forms || forms.length === 0) && (
+              <p className="text-sm text-muted">No forms are available yet for this section.</p>
+            )}
           </div>
         )}
       </div>

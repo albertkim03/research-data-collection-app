@@ -1,102 +1,252 @@
 // app/api/forms/[formId]/submit/route.ts
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { Resend } from "resend";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
+
+const MAX_BYTES = 15 * 1024 * 1024; // 15 MB
 
 export async function POST(
   req: Request,
   { params }: { params: Promise<{ formId: string }> }
 ) {
   const { formId } = await params;
-  const { sectionNumber, responses, pdfBase64 } = await req.json();
-
-  const sectionNum = Number(sectionNumber);
-  if (!formId || Number.isNaN(sectionNum)) {
-    return NextResponse.json({ error: "Bad payload" }, { status: 400 });
-  }
 
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  // Validate form
-  const { data: form, error: formErr } = await supabase
-    .from("forms")
-    .select("id, title, section_number, is_active")
-    .eq("id", formId)
-    .single();
+  // resolve name + email once for both branches
+  const { data: prof } = await supabase
+    .from("profiles")
+    .select("first_name,last_name")
+    .eq("user_id", user.id)
+    .maybeSingle();
 
-  if (formErr || !form || !form.is_active || form.section_number !== sectionNum) {
-    return NextResponse.json({ error: "Invalid form" }, { status: 404 });
+  const fullName =
+    [prof?.first_name, prof?.last_name].filter(Boolean).join(" ")
+      || [user.user_metadata?.first_name, user.user_metadata?.last_name].filter(Boolean).join(" ")
+      || "";
+
+  const userEmail = user.email ?? "";
+
+  const ct = req.headers.get("content-type") || "";
+
+  async function getFormAndExisting(sectionNum: number) {
+    const { data: form, error: formErr } = await supabase
+      .from("forms")
+      .select("id, title, section_number, is_active, kind")
+      .eq("id", formId)
+      .single();
+
+    if (formErr || !form || !form.is_active || form.section_number !== sectionNum) {
+      return { error: NextResponse.json({ error: "Invalid form" }, { status: 404 }) as any };
+    }
+
+    const { data: existing } = await supabase
+      .from("form_responses")
+      .select("id, submitted")
+      .eq("user_id", user.id)
+      .eq("form_id", formId)
+      .maybeSingle();
+
+    return { form, existing };
   }
 
-  // Save response
-  const { error: upErr } = await supabase.from("form_responses").upsert(
-    {
-      user_id: user.id,
-      form_id: formId,
-      section_number: sectionNum,
-      responses,
-      submitted_at: new Date().toISOString(),
-    },
-    { onConflict: "user_id,form_id" }
+  // ---- Branch 1: multipart/form-data (PDF uploads) ----
+  if (ct.includes("multipart/form-data")) {
+    const formData = await req.formData();
+    const file = formData.get("pdf");
+    const sectionNumberRaw = formData.get("sectionNumber");
+    const sectionNum = Number(sectionNumberRaw);
+
+    if (!(file instanceof File)) {
+      return NextResponse.json({ error: "Missing PDF file" }, { status: 400 });
+    }
+    if (!formId || Number.isNaN(sectionNum)) {
+      return NextResponse.json({ error: "Bad payload" }, { status: 400 });
+    }
+    if (file.size === 0) {
+      return NextResponse.json({ error: "Empty file" }, { status: 400 });
+    }
+    if (file.size > MAX_BYTES) {
+      return NextResponse.json({ error: "File too large" }, { status: 413 });
+    }
+    const lower = (file.name || "").toLowerCase();
+    const mime = file.type || "";
+    if (!(mime === "application/pdf" || lower.endsWith(".pdf"))) {
+      return NextResponse.json({ error: "Only PDFs are accepted" }, { status: 415 });
+    }
+
+    const { form, existing, error } = await getFormAndExisting(sectionNum);
+    if (error) return error;
+    if (form!.kind !== "pdf") {
+      return NextResponse.json({ error: "This form is not a PDF upload" }, { status: 400 });
+    }
+    if (existing?.submitted) {
+      return NextResponse.json({ error: "Already submitted" }, { status: 409 });
+    }
+
+    // email attachment via Resend
+    try {
+      const buf = Buffer.from(await (file as File).arrayBuffer());
+      const RESEND_KEY = process.env.RESEND_KEY || process.env.RESEND_API_KEY;
+      const EMAIL_TO = process.env.EMAIL_TO!;
+      const EMAIL_FROM = process.env.EMAIL_FROM!;
+      if (!RESEND_KEY || !EMAIL_TO || !EMAIL_FROM) {
+        console.error("Missing RESEND_KEY/EMAIL_TO/EMAIL_FROM");
+      } else {
+        await fetch("https://api.resend.com/emails", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${RESEND_KEY}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            from: EMAIL_FROM,
+            to: [EMAIL_TO],
+            subject: `PDF submission: ${form!.title} (Section ${sectionNum})`,
+            html: `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif">
+                     <p>
+                       <strong>Name:</strong> ${escapeHtml(fullName || "(not provided)")}<br/>
+                       <strong>Email:</strong> ${escapeHtml(userEmail || "(unknown)")}
+                     </p>
+                     <p style="margin:0 0 10px">
+                       <strong>Form:</strong> ${escapeHtml(form!.title)}<br/>
+                       <strong>Section:</strong> ${sectionNum}<br/>
+                       <strong>Form ID:</strong> ${escapeHtml(form!.id)}
+                     </p>
+                     <p>${escapeHtml(userEmail || user.id)} submitted a PDF for the form above.</p>
+                   </div>`,
+            attachments: [
+              {
+                filename: (file as File).name || `submission-${sectionNum}-${formId}.pdf`,
+                content: buf.toString("base64"),
+              },
+            ],
+          }),
+        });
+      }
+    } catch (e) {
+      console.error("Resend (pdf) error:", e);
+    }
+
+    // mark submitted
+    const nowIso = new Date().toISOString();
+    if (existing) {
+      const { error: upErr } = await supabase
+        .from("form_responses")
+        .update({ submitted: true, submitted_at: nowIso })
+        .eq("id", existing.id);
+      if (upErr) return NextResponse.json({ error: upErr.message }, { status: 500 });
+    } else {
+      const { error: insErr } = await supabase
+        .from("form_responses")
+        .insert({
+          user_id: user.id,
+          form_id: formId,
+          section_number: sectionNum,
+          submitted: true,
+          submitted_at: nowIso,
+        });
+      if (insErr) return NextResponse.json({ error: insErr.message }, { status: 500 });
+    }
+
+    return NextResponse.json({ ok: true });
+  }
+
+  // ---- Branch 2: application/json (digitised forms) ----
+  if (ct.includes("application/json")) {
+    const { sectionNumber, responses } = await req.json();
+    const sectionNum = Number(sectionNumber);
+    if (!formId || Number.isNaN(sectionNum)) {
+      return NextResponse.json({ error: "Bad payload" }, { status: 400 });
+    }
+
+    const { form, existing, error } = await getFormAndExisting(sectionNum);
+    if (error) return error;
+    if (form!.kind !== "digital") {
+      return NextResponse.json({ error: "This form expects a PDF upload" }, { status: 400 });
+    }
+    if (existing?.submitted) {
+      return NextResponse.json({ error: "Already submitted" }, { status: 409 });
+    }
+
+    // email pretty JSON via Resend (no DB storage of responses)
+    try {
+      const RESEND_KEY = process.env.RESEND_KEY || process.env.RESEND_API_KEY;
+      const EMAIL_TO = process.env.EMAIL_TO!;
+      const EMAIL_FROM = process.env.EMAIL_FROM!;
+      if (!RESEND_KEY || !EMAIL_TO || !EMAIL_FROM) {
+        console.error("Missing RESEND_KEY/EMAIL_TO/EMAIL_FROM");
+      } else {
+        const pretty = `<pre style="font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;white-space:pre-wrap;word-break:break-word;">${escapeHtml(
+          JSON.stringify(responses, null, 2)
+        )}</pre>`;
+        await fetch("https://api.resend.com/emails", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${RESEND_KEY}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            from: EMAIL_FROM,
+            to: [EMAIL_TO],
+            subject: `New submission: ${form!.title} (Section ${sectionNum})`,
+            html: `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif">
+                     <p>
+                       <strong>Name:</strong> ${escapeHtml(fullName || "(not provided)")}<br/>
+                       <strong>Email:</strong> ${escapeHtml(userEmail || "(unknown)")}
+                     </p>
+                     <p style="margin:0 0 10px">
+                       <strong>Form:</strong> ${escapeHtml(form!.title)}<br/>
+                       <strong>Section:</strong> ${sectionNum}<br/>
+                       <strong>Form ID:</strong> ${escapeHtml(form!.id)}
+                     </p>
+                     <p style="margin:0 0 6px">Responses:</p>
+                     ${pretty}
+                   </div>`,
+          }),
+        });
+      }
+    } catch (e) {
+      console.error("Resend (digital) error:", e);
+    }
+
+    // mark submitted only
+    const nowIso = new Date().toISOString();
+    if (existing) {
+      const { error: upErr } = await supabase
+        .from("form_responses")
+        .update({ submitted: true, submitted_at: nowIso })
+        .eq("id", existing.id);
+      if (upErr) return NextResponse.json({ error: upErr.message }, { status: 500 });
+    } else {
+      const { error: insErr } = await supabase
+        .from("form_responses")
+        .insert({
+          user_id: user.id,
+          form_id: formId,
+          section_number: sectionNum,
+          submitted: true,
+          submitted_at: nowIso,
+        });
+      if (insErr) return NextResponse.json({ error: insErr.message }, { status: 500 });
+    }
+
+    return NextResponse.json({ ok: true });
+  }
+
+  // Unsupported Content-Type
+  return NextResponse.json(
+    { error: 'Unsupported Content-Type (use "application/json" or "multipart/form-data")' },
+    { status: 415 }
   );
-  if (upErr) return NextResponse.json({ error: upErr.message }, { status: 500 });
-
-  // Email via Resend
-  try {
-    const resend = new Resend(process.env.RESEND_KEY);
-
-    const pretty = `<pre style="font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;white-space:pre-wrap;">${escapeHtml(
-      JSON.stringify(responses, null, 2)
-    )}</pre>`;
-
-    const html = `
-      <div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif">
-        <h2 style="margin:0 0 8px">New form submission</h2>
-        <p style="margin:0 0 12px">
-          <strong>Form:</strong> ${escapeHtml(form.title)}<br/>
-          <strong>Section:</strong> ${sectionNum}<br/>
-          <strong>User:</strong> ${escapeHtml(user.email ?? user.id)}
-        </p>
-        <p style="margin:0 0 6px">Responses:</p>
-        ${pretty}
-      </div>
-    `;
-
-    const attachments =
-      typeof pdfBase64 === "string" && pdfBase64.length > 0
-        ? [
-            {
-              filename: `submission-${sectionNum}-${formId}.pdf`,
-              content: Buffer.from(pdfBase64, "base64"),
-            },
-          ]
-        : undefined;
-
-    await resend.emails.send({
-      from: process.env.EMAIL_FROM!,
-      to: process.env.EMAIL_TO!,
-      subject: `New submission: ${form.title} (Section ${sectionNum})`,
-      html,
-      attachments,
-    });
-  } catch (e: any) {
-    // Do not fail the submission if email fails
-    console.error("Resend error:", e?.message || e);
-  }
-
-  return NextResponse.json({ ok: true });
 }
 
-// Small helper to avoid breaking HTML
 function escapeHtml(s: string) {
-  return s
+  return String(s)
     .replaceAll("&", "&amp;")
     .replaceAll("<", "&lt;")
     .replaceAll(">", "&gt;")
