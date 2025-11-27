@@ -14,7 +14,9 @@ export async function POST(
   const { formId } = await params;
 
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   // resolve name + email once for both branches
@@ -25,18 +27,19 @@ export async function POST(
     .maybeSingle();
 
   const fullName =
-    [prof?.first_name, prof?.last_name].filter(Boolean).join(" ")
-      || [user.user_metadata?.first_name, user.user_metadata?.last_name].filter(Boolean).join(" ")
-      || "";
+    [prof?.first_name, prof?.last_name].filter(Boolean).join(" ") ||
+    [user.user_metadata?.first_name, user.user_metadata?.last_name]
+      .filter(Boolean)
+      .join(" ") ||
+    "";
 
   const userEmail = user.email ?? "";
-
   const ct = req.headers.get("content-type") || "";
 
   async function getFormAndExisting(sectionNum: number) {
     const { data: form, error: formErr } = await supabase
       .from("forms")
-      .select("id, title, section_number, is_active, kind")
+      .select("id, title, section_number, is_active, kind, form_schema")
       .eq("id", formId)
       .single();
 
@@ -54,7 +57,7 @@ export async function POST(
     return { form, existing };
   }
 
-  // ---- Branch 1: multipart/form-data (PDF uploads) ----
+  // ---------- Branch 1: multipart/form-data (PDF uploads) ----------
   if (ct.includes("multipart/form-data")) {
     const formData = await req.formData();
     const file = formData.get("pdf");
@@ -156,7 +159,7 @@ export async function POST(
     return NextResponse.json({ ok: true });
   }
 
-  // ---- Branch 2: application/json (digitised forms) ----
+  // ---------- Branch 2: application/json (digitised forms) ----------
   if (ct.includes("application/json")) {
     const { sectionNumber, responses } = await req.json();
     const sectionNum = Number(sectionNumber);
@@ -171,6 +174,63 @@ export async function POST(
     }
     if (existing?.submitted) {
       return NextResponse.json({ error: "Already submitted" }, { status: 409 });
+    }
+
+    // --- Optional grading if the form schema contains an answerKey map ---
+    // Expected shape in forms.form_schema:
+    // { version: 1, fields: [...], answerKey: { q1: "B", q2: "C", ... } }
+    const schema: any = form!.form_schema || {};
+    const answerKey: Record<string, string> | undefined = schema.answerKey;
+
+    let scoreHtml = "";
+    if (answerKey && typeof answerKey === "object") {
+      const rows: string[] = [];
+      let correctCount = 0;
+      let total = 0;
+
+      // only grade keys that exist in the answerKey
+      for (const [qKey, correctValRaw] of Object.entries(answerKey)) {
+        total += 1;
+        const submitted = normalize(responses?.[qKey]);
+        const correct = normalize(correctValRaw);
+        const ok = submitted === correct;
+        if (ok) correctCount += 1;
+        rows.push(
+          `<tr>
+             <td style="padding:6px 8px;border-bottom:1px solid #eee;">${escapeHtml(qKey)}</td>
+             <td style="padding:6px 8px;border-bottom:1px solid #eee;">${escapeHtml(
+               correctValRaw as string
+             )}</td>
+             <td style="padding:6px 8px;border-bottom:1px solid #eee;">${escapeHtml(
+               responses?.[qKey] ?? "(blank)"
+             )}</td>
+             <td style="padding:6px 8px;border-bottom:1px solid #eee;">${
+               ok ? "✅" : "❌"
+             }</td>
+           </tr>`
+        );
+      }
+
+      const percent =
+        total > 0 ? Math.round((correctCount / total) * 100) : 0;
+
+      scoreHtml = `
+        <div style="margin:14px 0">
+          <div style="font-weight:600;margin-bottom:6px">
+            Score: ${correctCount}/${total} (${percent}%)
+          </div>
+          <table cellpadding="0" cellspacing="0" style="border-collapse:collapse;font-size:13px;">
+            <thead>
+              <tr>
+                <th style="text-align:left;padding:6px 8px;border-bottom:1px solid #ddd;">Question</th>
+                <th style="text-align:left;padding:6px 8px;border-bottom:1px solid #ddd;">Correct</th>
+                <th style="text-align:left;padding:6px 8px;border-bottom:1px solid #ddd;">Submitted</th>
+                <th style="text-align:left;padding:6px 8px;border-bottom:1px solid #ddd;">Result</th>
+              </tr>
+            </thead>
+            <tbody>${rows.join("")}</tbody>
+          </table>
+        </div>`;
     }
 
     // email pretty JSON via Resend (no DB storage of responses)
@@ -204,7 +264,8 @@ export async function POST(
                        <strong>Section:</strong> ${sectionNum}<br/>
                        <strong>Form ID:</strong> ${escapeHtml(form!.id)}
                      </p>
-                     <p style="margin:0 0 6px">Responses:</p>
+                     ${scoreHtml}
+                     <p style="margin:10px 0 6px">Raw responses:</p>
                      ${pretty}
                    </div>`,
           }),
@@ -243,6 +304,10 @@ export async function POST(
     { error: 'Unsupported Content-Type (use "application/json" or "multipart/form-data")' },
     { status: 415 }
   );
+}
+
+function normalize(v: any): string {
+  return String(v ?? "").trim().toLowerCase();
 }
 
 function escapeHtml(s: string) {

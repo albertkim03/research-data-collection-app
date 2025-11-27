@@ -52,9 +52,9 @@ export default async function FormPage({
       <div className="max-w-2xl mx-auto p-6 space-y-6">
         <h1 className="text-2xl font-bold">{form.title}</h1>
         {locked && (
-          <p className="text-sm text-muted">
+          <div className="rounded-md border border-green-300 bg-green-50 p-3 text-sm">
             You have already submitted this form on {existing?.submitted_at?.slice(0, 10)}.
-          </p>
+          </div>
         )}
 
         {form.kind === "pdf" ? (

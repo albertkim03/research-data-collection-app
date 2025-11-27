@@ -8,22 +8,53 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
-type Field =
-  | { key: string; type: "text";  label: string; required?: boolean; help?: string }
-  | { key: string; type: "radio"; label: string; options: string[]; required?: boolean; help?: string }
-  | {
-      key: string;
-      type: "scale";
-      label: string;
-      min: number;
-      max: number;
-      step?: number;
-      required?: boolean;
-      help?: string;
-      leftLabel?: string;
-      rightLabel?: string;
-    };
+// ---------- Field types ----------
+type TextField = {
+  key: string;
+  type: "text";
+  label: string;
+  required?: boolean;
+  help?: string;
+};
 
+type RadioField = {
+  key: string;
+  type: "radio";
+  label: string;
+  options: string[];
+  required?: boolean;
+  help?: string;
+};
+
+type ScaleField = {
+  key: string;
+  type: "scale";
+  label: string;
+  min: number;
+  max: number;
+  step?: number;         // e.g. 5 to create 21 ticks for 0..100
+  required?: boolean;
+  help?: string;
+  leftLabel?: string;    // e.g. "Very Low"
+  rightLabel?: string;   // e.g. "Very High"
+};
+
+// Multiple-choice with optional prompt audio and per-option audio
+type McqOption = { value: string; label: string; audio?: string };
+type McqField = {
+  key: string;
+  type: "mcq";
+  label: string;        // question text (EN or instruction)
+  promptAudio?: string; // audio for the question stem
+  options: McqOption[]; // without “I’m not sure”
+  notSure?: boolean;    // if true, adds an “I’m not sure” choice
+  required?: boolean;
+  help?: string;
+};
+
+type Field = TextField | RadioField | ScaleField | McqField;
+
+// ---------- Component ----------
 export default function DynamicForm({
   formId,
   sectionNumber,
@@ -39,7 +70,6 @@ export default function DynamicForm({
 }) {
   const router = useRouter();
 
-  // Start from any previously saved values; nothing is auto-picked.
   const [data, setData] = useState<Record<string, any>>(initialData ?? {});
   const [touched, setTouched] = useState<Record<string, boolean>>({});
   const [attemptedSubmit, setAttemptedSubmit] = useState(false);
@@ -56,7 +86,7 @@ export default function DynamicForm({
     markTouched(k);
   };
 
-  // Missing keys for inline guidance
+  // ---------- Completion detection ----------
   const missingKeys = useMemo(() => {
     const misses: string[] = [];
     for (const f of schema.fields) {
@@ -64,10 +94,14 @@ export default function DynamicForm({
       if (f.type === "text") {
         if (typeof v !== "string" || v.trim().length === 0) misses.push(f.key);
       } else if (f.type === "radio") {
-        if (typeof v !== "string" || !f.options.includes(v)) misses.push(f.key);
+        const rf = f as RadioField;
+        if (typeof v !== "string" || !rf.options.includes(v)) misses.push(f.key);
       } else if (f.type === "scale") {
+        const sf = f as ScaleField;
         if (!touched[f.key]) misses.push(f.key);
-        else if (typeof v !== "number" || v < f.min || v > f.max) misses.push(f.key);
+        else if (typeof v !== "number" || v < sf.min || v > sf.max) misses.push(f.key);
+      } else if (f.type === "mcq") {
+        if (typeof v !== "string" || v.length === 0) misses.push(f.key);
       }
     }
     return misses;
@@ -75,19 +109,24 @@ export default function DynamicForm({
 
   const labelByKey = useMemo(() => {
     const m: Record<string, string> = {};
-    schema.fields.forEach((f) => { m[f.key] = f.label; });
+    schema.fields.forEach((f) => {
+      m[f.key] = f.label;
+    });
     return m;
   }, [schema.fields]);
 
   const isComplete = missingKeys.length === 0;
 
+  // ---------- Submit ----------
   const submit = async () => {
     setAttemptedSubmit(true);
     setError(null);
+
     if (!isComplete) {
       setError("Please complete all questions before submitting.");
       return;
     }
+
     setSaving(true);
     try {
       const res = await fetch(`/api/forms/${formId}/submit`, {
@@ -98,6 +137,7 @@ export default function DynamicForm({
           responses: data,
         }),
       });
+
       if (!res.ok) {
         let msg = `Submit failed (${res.status})`;
         try {
@@ -106,6 +146,7 @@ export default function DynamicForm({
         } catch {}
         throw new Error(msg);
       }
+
       router.replace(`/sections/${sectionNumber}`);
       router.refresh();
     } catch (e: any) {
@@ -115,8 +156,17 @@ export default function DynamicForm({
     }
   };
 
-  const showTopNotice = !isComplete && (attemptedSubmit || Object.keys(touched).length > 0);
+  const showTopNotice =
+    !isComplete && (attemptedSubmit || Object.keys(touched).length > 0);
 
+  // small inline audio control for MCQ prompt/options
+  const AudioInline = ({ src }: { src: string }) => (
+    <audio controls src={src} className="h-8 align-middle">
+      Your browser does not support the audio element.
+    </audio>
+  );
+
+  // ---------- Render ----------
   return (
     <form className="space-y-6">
       {showTopNotice && (
@@ -133,23 +183,30 @@ export default function DynamicForm({
 
       {schema.fields.map((f) => {
         const isMissing = missingKeys.includes(f.key);
-        const shouldShowFieldError = isMissing && (touched[f.key] || attemptedSubmit);
+        const shouldShowFieldError =
+          isMissing && (touched[f.key] || attemptedSubmit);
         const invalidClass = shouldShowFieldError ? "ring-1 ring-red-500" : "";
         const helpId = `${f.key}-help`;
 
+        // ----- TEXT -----
         if (f.type === "text") {
-          const val = typeof data[f.key] === "string" ? data[f.key] : "";
+          const tf = f as TextField;
+          const val = typeof data[tf.key] === "string" ? data[tf.key] : "";
           return (
-            <div key={f.key} className="grid gap-2">
-              <Label htmlFor={f.key}>{f.label}</Label>
-              {f.help && <p id={helpId} className="text-xs text-muted">{f.help}</p>}
+            <div key={tf.key} className="grid gap-2">
+              <Label htmlFor={tf.key}>{tf.label}</Label>
+              {tf.help && (
+                <p id={helpId} className="text-xs text-muted">
+                  {tf.help}
+                </p>
+              )}
               <Input
-                id={f.key}
+                id={tf.key}
                 value={val}
-                onChange={(e) => update(f.key, e.target.value)}
-                onBlur={() => markTouched(f.key)}
+                onChange={(e) => update(tf.key, e.target.value)}
+                onBlur={() => markTouched(tf.key)}
                 aria-invalid={shouldShowFieldError || undefined}
-                aria-describedby={f.help ? helpId : undefined}
+                aria-describedby={tf.help ? helpId : undefined}
                 className={invalidClass}
                 disabled={disabled}
               />
@@ -160,24 +217,30 @@ export default function DynamicForm({
           );
         }
 
+        // ----- RADIO -----
         if (f.type === "radio") {
-          const val = data[f.key];
+          const rf = f as RadioField;
+          const val = data[rf.key];
           return (
-            <fieldset key={f.key} className="grid gap-2">
-              <legend className="text-sm font-medium">{f.label}</legend>
-              {f.help && <p id={helpId} className="text-xs text-muted">{f.help}</p>}
+            <fieldset key={rf.key} className="grid gap-2">
+              <legend className="text-sm font-medium">{rf.label}</legend>
+              {rf.help && (
+                <p id={helpId} className="text-xs text-muted">
+                  {rf.help}
+                </p>
+              )}
               <div className={`flex flex-wrap gap-3 rounded-md p-2 ${invalidClass}`}>
-                {f.options.map((opt) => (
+                {rf.options.map((opt) => (
                   <label key={opt} className="flex items-center gap-2">
                     <input
                       type="radio"
-                      name={f.key}
+                      name={rf.key}
                       value={opt}
                       checked={val === opt}
-                      onChange={() => update(f.key, opt)}
-                      onBlur={() => markTouched(f.key)}
+                      onChange={() => update(rf.key, opt)}
+                      onBlur={() => markTouched(rf.key)}
                       aria-invalid={shouldShowFieldError || undefined}
-                      aria-describedby={f.help ? helpId : undefined}
+                      aria-describedby={rf.help ? helpId : undefined}
                       disabled={disabled}
                     />
                     <span className="text-sm">{opt}</span>
@@ -191,55 +254,117 @@ export default function DynamicForm({
           );
         }
 
+        // ----- SCALE (NASA-TLX style) -----
         if (f.type === "scale") {
-          const step = typeof f.step === "number" && f.step > 0 ? f.step : 1;
-          const val = typeof data[f.key] === "number" ? data[f.key] : f.min; // render at min, but doesn’t count until touched
-          const hasPicked = touched[f.key] && typeof data[f.key] === "number";
-          const listId = `${f.key}-ticks`;
+          const sf = f as ScaleField;
+          const step =
+            typeof sf.step === "number" && sf.step > 0 ? sf.step : 1;
+          const val =
+            typeof data[sf.key] === "number" ? data[sf.key] : sf.min; // doesn’t count until touched
+          const hasPicked = touched[sf.key] && typeof data[sf.key] === "number";
+          const listId = `${sf.key}-ticks`;
 
+          // produce tick values (e.g., 0..100 step 5 => 21 ticks)
           const ticks: number[] = [];
-          for (let i = f.min; i <= f.max; i += step) ticks.push(i);
+          for (let i = sf.min; i <= sf.max; i += step) ticks.push(i);
 
           return (
-            <div key={f.key} className="grid gap-2">
-              <span className="text-sm font-medium">{f.label}</span>
-              {f.help && <p id={helpId} className="text-xs text-muted">{f.help}</p>
+            <div key={sf.key} className="grid gap-2">
+              <span className="text-sm font-medium">{sf.label}</span>
+              {sf.help && (
+                <p id={helpId} className="text-xs text-muted">
+                  {sf.help}
+                </p>
+              )}
 
-              }
               <input
                 type="range"
-                min={f.min}
-                max={f.max}
+                min={sf.min}
+                max={sf.max}
                 step={step}
                 value={val}
                 list={listId}
-                onChange={(e) => update(f.key, Number(e.target.value))}
-                onMouseUp={() => markTouched(f.key)}
-                onTouchEnd={() => markTouched(f.key)}
+                onChange={(e) => update(sf.key, Number(e.target.value))}
+                onMouseUp={() => markTouched(sf.key)}
+                onTouchEnd={() => markTouched(sf.key)}
                 aria-invalid={shouldShowFieldError || undefined}
-                aria-describedby={f.help ? helpId : undefined}
+                aria-describedby={sf.help ? helpId : undefined}
                 className={`h-2 w-full rounded ${invalidClass}`}
                 disabled={disabled}
               />
 
-              {/* 21 tick marks to mirror the PDF */}
               <datalist id={listId}>
                 {ticks.map((n) => (
                   <option key={n} value={n} />
                 ))}
               </datalist>
 
-              {/* Anchor labels visually on the slider line */}
               <div className="flex justify-between text-[11px] text-muted -mt-1">
-                <span>{f.leftLabel ?? "Low"}</span>
+                <span>{sf.leftLabel ?? "Very Low"}</span>
                 <span>{hasPicked ? `Selected: ${val}` : "—"}</span>
-                <span>{f.rightLabel ?? "High"}</span>
+                <span>{sf.rightLabel ?? "Very High"}</span>
               </div>
 
               {shouldShowFieldError && (
                 <p className="text-xs text-red-600">Please choose a value.</p>
               )}
             </div>
+          );
+        }
+
+        // ----- MCQ (with audio) -----
+        if (f.type === "mcq") {
+          const mf = f as McqField;
+          const val = data[mf.key];
+
+          const choices: McqOption[] = mf.notSure
+            ? [...mf.options, { value: "unsure", label: "I’m not sure" }]
+            : mf.options;
+
+          return (
+            <fieldset key={mf.key} className="grid gap-2">
+              <legend className="text-sm font-medium">{mf.label}</legend>
+              {mf.help && (
+                <p id={helpId} className="text-xs text-muted">
+                  {mf.help}
+                </p>
+              )}
+
+              {mf.promptAudio && (
+                <div className="mt-1">
+                  <AudioInline src={mf.promptAudio} />
+                </div>
+              )}
+
+              <div className={`mt-2 space-y-3 rounded-md p-2 ${invalidClass}`}>
+                {choices.map((opt) => (
+                  <div
+                    key={opt.value}
+                    className="flex items-center justify-between gap-3"
+                  >
+                    <label className="flex items-center gap-2">
+                      <input
+                        type="radio"
+                        name={mf.key}
+                        value={opt.value}
+                        checked={val === opt.value}
+                        onChange={() => update(mf.key, opt.value)}
+                        onBlur={() => markTouched(mf.key)}
+                        aria-invalid={shouldShowFieldError || undefined}
+                        aria-describedby={mf.help ? helpId : undefined}
+                        disabled={disabled}
+                      />
+                      <span className="text-sm">{opt.label}</span>
+                    </label>
+                    {opt.audio && <AudioInline src={opt.audio} />}
+                  </div>
+                ))}
+              </div>
+
+              {shouldShowFieldError && (
+                <p className="text-xs text-red-600">Please select one option.</p>
+              )}
+            </fieldset>
           );
         }
 
