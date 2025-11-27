@@ -1,6 +1,7 @@
 // components/navbar.tsx
 "use client";
 
+import Image from "next/image"; 
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -98,8 +99,18 @@ export default function Navbar() {
   return (
     <nav className="border-b border-border bg-white shadow-sm sticky top-0 z-50">
       <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
-        <Link href="/" className="font-bold text-lg text-primary">
-          Research Study
+        <Link href="/" className="flex items-center gap-3 group" aria-label="Go to Home">
+          <Image
+            src="/unsw-logo.png"
+            alt="UNSW Sydney"
+            width={36}
+            height={36}
+            className="h-9 w-auto"
+            priority
+          />
+          <span className="font-bold text-lg text-primary group-hover:opacity-90">
+            Research Study
+          </span>
         </Link>
 
         <div className="flex gap-2 items-center flex-wrap">
