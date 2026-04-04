@@ -8,18 +8,18 @@ import type { VocabItem } from "@/types/game";
 
 // Positions as [left%, top%] within the café scene container
 const ITEM_POSITIONS: Record<string, [number, number]> = {
-  bill:   [6,  38],
-  coffee: [6,  52],
-  tea:    [6,  66],
-  juice:  [18, 38],
-  water:  [18, 52],
-  milk:   [18, 66],
-  menu:   [38, 46],
-  spoon:  [38, 62],
-  sugar:  [56, 46],
-  bread:  [56, 62],
-  soup:   [46, 80],
-  cake:   [80, 30],
+  bill:   [67,  22],
+  coffee: [29,  62],
+  tea:    [29.5,  85],
+  juice:  [23, 28],
+  water:  [95, 62],
+  milk:   [30, 19],
+  menu:   [49, 15],
+  spoon:  [56, 46],
+  sugar:  [17, 55],
+  bread:  [52, 60],
+  soup:   [67, 68],
+  cake:   [70, 53],
 };
 
 interface ItemClickState {
