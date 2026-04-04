@@ -6,7 +6,6 @@ import { useAudio } from "@/hooks/useAudio";
 import { shuffle } from "@/utils/shuffle";
 import type { RecallAttempt, RecapAttempt } from "@/types/game";
 
-// Questions per spec
 interface RecapQuestion {
   id: number;
   type: string;
@@ -16,56 +15,76 @@ interface RecapQuestion {
 }
 
 interface Props {
-  wrongItemIds: string[]; // items missed in Phase 3
+  wrongItemIds: string[];
   recallResults: RecallAttempt[];
-  onComplete: (results: RecapAttempt[], pointsEarned: number) => void;
+  onScoreGain: (pts: number, label?: string) => void;
+  onComplete: (results: RecapAttempt[]) => void;
 }
 
 type SubPhase = "review" | "quiz";
 
-export default function Phase5Recap({ wrongItemIds, onComplete }: Props) {
+export default function Phase5Recap({ wrongItemIds, onScoreGain, onComplete }: Props) {
   const [subPhase, setSubPhase] = useState<SubPhase>("review");
   const [questionIndex, setQuestionIndex] = useState(0);
   const [feedback, setFeedback] = useState<boolean | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [questionStart, setQuestionStart] = useState(0);
   const [results, setResults] = useState<RecapAttempt[]>([]);
-  const [points, setPoints] = useState(0);
   const { play, isPlaying } = useAudio();
 
-  // Build the 6 fixed questions
+  // 6 beginner-friendly questions — no Russian reading required
+  // Q1: Audio → emoji/image
+  // Q2: Hear phrase → pick English meaning
+  // Q3: Audio sequence → tray combo
+  // Q4: Audio → emoji/image
+  // Q5: Hear phrase → pick English meaning
+  // Q6: See item image → hear audio → pick English word
   const questions: RecapQuestion[] = [
     {
       id: 1,
       type: "audio-to-image",
       render: () => (
         <div className="text-center space-y-3">
-          <p className="text-gray-500">Hear the word, then click the correct item</p>
-          <button onClick={() => play("/game-mp3/game-1/audio_milk_008.mp3")}
-            className="bg-amber-100 text-amber-800 font-bold px-6 py-3 rounded-xl text-lg hover:bg-amber-200 transition-colors">
+          <p className="text-gray-500 text-sm">Hear the word, then click the correct item</p>
+          <button
+            onClick={() => play("/game-mp3/game-1/audio_milk_008.mp3")}
+            className="bg-amber-100 text-amber-800 font-bold px-6 py-3 rounded-xl text-lg hover:bg-amber-200 transition-colors"
+          >
             🔊 {isPlaying ? "Playing…" : "Play word"}
           </button>
         </div>
       ),
       correctId: "milk",
-      options: shuffle(["milk", "bread", "soup", "water", "sugar", "spoon"])
-        .map((id) => ({ id, label: <span className="text-4xl">{CAFE_ITEMS.find((i) => i.id === id)!.emoji}</span> })),
+      options: shuffle(["milk", "bread", "soup", "water", "sugar", "spoon"]).map((id) => ({
+        id,
+        label: (
+          <div className="flex flex-col items-center gap-1">
+            <span className="text-4xl">{CAFE_ITEMS.find((i) => i.id === id)!.emoji}</span>
+            <span className="text-xs text-gray-500">{CAFE_ITEMS.find((i) => i.id === id)!.english}</span>
+          </div>
+        ),
+      })),
     },
     {
       id: 2,
-      type: "english-to-russian-text",
+      type: "audio-to-english-meaning",
       render: () => (
-        <div className="text-center">
-          <p className="text-gray-500 mb-2">Select the Russian translation</p>
-          <div className="text-3xl font-bold text-gray-800">"Thank you"</div>
+        <div className="text-center space-y-3">
+          <p className="text-gray-500 text-sm">Listen to this Russian phrase — what does it mean?</p>
+          <button
+            onClick={() => play("/game-mp3/game-3/audio_thank_you_031.mp3")}
+            className="bg-amber-100 text-amber-800 font-bold px-6 py-3 rounded-xl text-lg hover:bg-amber-200 transition-colors"
+          >
+            🔊 {isPlaying ? "Playing…" : "Play phrase"}
+          </button>
         </div>
       ),
-      correctId: "thank_you",
+      correctId: "thank_you_en",
       options: shuffle([
-        { id: "thank_you", label: <span className="text-xl font-bold">Спасибо</span> },
-        { id: "hello",     label: <span className="text-xl font-bold">Здравствуйте</span> },
-        { id: "goodbye",   label: <span className="text-xl font-bold">До свидания</span> },
-        { id: "please",    label: <span className="text-xl font-bold">Пожалуйста</span> },
+        { id: "thank_you_en", label: <span className="text-lg font-bold">Thank you</span> },
+        { id: "hello_en",     label: <span className="text-lg font-bold">Hello</span> },
+        { id: "goodbye_en",   label: <span className="text-lg font-bold">Goodbye</span> },
+        { id: "please_en",    label: <span className="text-lg font-bold">Please</span> },
       ]),
     },
     {
@@ -73,7 +92,7 @@ export default function Phase5Recap({ wrongItemIds, onComplete }: Props) {
       type: "order-reconstruction",
       render: () => (
         <div className="text-center space-y-3">
-          <p className="text-gray-500">Listen to the order, then select the correct tray</p>
+          <p className="text-gray-500 text-sm">Listen to the order, then select the correct tray</p>
           <button
             className="bg-amber-100 text-amber-800 font-bold px-6 py-3 rounded-xl hover:bg-amber-200 transition-colors"
             onClick={() => {
@@ -89,10 +108,10 @@ export default function Phase5Recap({ wrongItemIds, onComplete }: Props) {
       ),
       correctId: "1coffee2bread",
       options: shuffle([
-        { id: "1coffee2bread", label: <span>☕×1 + 🍞×2</span> },
-        { id: "2coffee1bread", label: <span>☕×2 + 🍞×1</span> },
-        { id: "1soup2bread",   label: <span>🍲×1 + 🍞×2</span> },
-        { id: "1coffee1bread", label: <span>☕×1 + 🍞×1</span> },
+        { id: "1coffee2bread", label: <div className="text-center"><div className="text-2xl">☕×1 + 🍞×2</div><div className="text-xs text-gray-500 mt-1">1 coffee + 2 bread</div></div> },
+        { id: "2coffee1bread", label: <div className="text-center"><div className="text-2xl">☕×2 + 🍞×1</div><div className="text-xs text-gray-500 mt-1">2 coffee + 1 bread</div></div> },
+        { id: "1soup2bread",   label: <div className="text-center"><div className="text-2xl">🍲×1 + 🍞×2</div><div className="text-xs text-gray-500 mt-1">1 soup + 2 bread</div></div> },
+        { id: "1coffee1bread", label: <div className="text-center"><div className="text-2xl">☕×1 + 🍞×1</div><div className="text-xs text-gray-500 mt-1">1 coffee + 1 bread</div></div> },
       ]),
     },
     {
@@ -100,49 +119,69 @@ export default function Phase5Recap({ wrongItemIds, onComplete }: Props) {
       type: "audio-to-image",
       render: () => (
         <div className="text-center space-y-3">
-          <p className="text-gray-500">Hear the word, then click the correct item</p>
-          <button onClick={() => play("/game-mp3/game-1/audio_spoon_012.mp3")}
-            className="bg-amber-100 text-amber-800 font-bold px-6 py-3 rounded-xl text-lg hover:bg-amber-200 transition-colors">
+          <p className="text-gray-500 text-sm">Hear the word, then click the correct item</p>
+          <button
+            onClick={() => play("/game-mp3/game-1/audio_spoon_012.mp3")}
+            className="bg-amber-100 text-amber-800 font-bold px-6 py-3 rounded-xl text-lg hover:bg-amber-200 transition-colors"
+          >
             🔊 {isPlaying ? "Playing…" : "Play word"}
           </button>
         </div>
       ),
       correctId: "spoon",
-      options: shuffle(["spoon", "menu", "bill", "sugar", "milk", "cake"])
-        .map((id) => ({ id, label: <span className="text-4xl">{CAFE_ITEMS.find((i) => i.id === id)!.emoji}</span> })),
+      options: shuffle(["spoon", "menu", "bill", "sugar", "milk", "cake"]).map((id) => ({
+        id,
+        label: (
+          <div className="flex flex-col items-center gap-1">
+            <span className="text-4xl">{CAFE_ITEMS.find((i) => i.id === id)!.emoji}</span>
+            <span className="text-xs text-gray-500">{CAFE_ITEMS.find((i) => i.id === id)!.english}</span>
+          </div>
+        ),
+      })),
     },
     {
       id: 5,
-      type: "english-to-russian-text",
+      type: "audio-to-english-meaning",
       render: () => (
-        <div className="text-center">
-          <p className="text-gray-500 mb-2">Select the Russian translation</p>
-          <div className="text-3xl font-bold text-gray-800">"Goodbye"</div>
+        <div className="text-center space-y-3">
+          <p className="text-gray-500 text-sm">Listen to this Russian phrase — what does it mean?</p>
+          <button
+            onClick={() => play("/game-mp3/game-3/audio_goodbye_035.mp3")}
+            className="bg-amber-100 text-amber-800 font-bold px-6 py-3 rounded-xl text-lg hover:bg-amber-200 transition-colors"
+          >
+            🔊 {isPlaying ? "Playing…" : "Play phrase"}
+          </button>
         </div>
       ),
-      correctId: "goodbye",
+      correctId: "goodbye_en",
       options: shuffle([
-        { id: "goodbye",   label: <span className="text-xl font-bold">До свидания</span> },
-        { id: "hello",     label: <span className="text-xl font-bold">Здравствуйте</span> },
-        { id: "thank_you", label: <span className="text-xl font-bold">Спасибо</span> },
-        { id: "yes",       label: <span className="text-xl font-bold">Да</span> },
+        { id: "goodbye_en",   label: <span className="text-lg font-bold">Goodbye</span> },
+        { id: "hello_en",     label: <span className="text-lg font-bold">Hello</span> },
+        { id: "thank_you_en", label: <span className="text-lg font-bold">Thank you</span> },
+        { id: "yes_en",       label: <span className="text-lg font-bold">Yes</span> },
       ]),
     },
     {
       id: 6,
-      type: "image-to-russian-text",
+      type: "image-audio-to-english",
       render: () => (
-        <div className="text-center">
-          <p className="text-gray-500 mb-2">What is the Russian word for this?</p>
+        <div className="text-center space-y-3">
+          <p className="text-gray-500 text-sm">Look at this item and listen — what is it called in English?</p>
           <div className="text-6xl">🍰</div>
+          <button
+            onClick={() => play("/game-mp3/game-1/audio_cake_007.mp3")}
+            className="bg-amber-100 text-amber-800 font-bold px-6 py-2 rounded-xl hover:bg-amber-200 transition-colors"
+          >
+            🔊 {isPlaying ? "Playing…" : "Hear it"}
+          </button>
         </div>
       ),
-      correctId: "cake",
+      correctId: "cake_en",
       options: shuffle([
-        { id: "cake",  label: <span className="text-xl font-bold">торт</span> },
-        { id: "bread", label: <span className="text-xl font-bold">хлеб</span> },
-        { id: "soup",  label: <span className="text-xl font-bold">суп</span> },
-        { id: "milk",  label: <span className="text-xl font-bold">молоко</span> },
+        { id: "cake_en",  label: <span className="text-lg font-bold">Cake</span> },
+        { id: "bread_en", label: <span className="text-lg font-bold">Bread</span> },
+        { id: "soup_en",  label: <span className="text-lg font-bold">Soup</span> },
+        { id: "milk_en",  label: <span className="text-lg font-bold">Milk</span> },
       ]),
     },
   ];
@@ -166,7 +205,7 @@ export default function Phase5Recap({ wrongItemIds, onComplete }: Props) {
 
     const basePoints = 25;
     const speedBonus = correct && responseTime < 3000 ? 10 : 0;
-    setPoints((p) => p + (correct ? basePoints + speedBonus : 0));
+    if (correct) onScoreGain(basePoints + speedBonus, speedBonus > 0 ? "⚡ Fast!" : undefined);
 
     const attempt: RecapAttempt = {
       questionNumber: currentQuestion.id,
@@ -175,44 +214,46 @@ export default function Phase5Recap({ wrongItemIds, onComplete }: Props) {
       responseTimeMs: responseTime,
       timestamp: Date.now(),
     };
-    setResults((prev) => [...prev, attempt]);
+    const newResults = [...results, attempt];
+    setResults(newResults);
 
     setTimeout(() => {
       if (questionIndex + 1 < questions.length) {
         setQuestionIndex((i) => i + 1);
       } else {
-        onComplete(results.concat(attempt), points + (correct ? basePoints + speedBonus : 0));
+        onComplete(newResults);
       }
     }, 1500);
   }
 
-  // ── Review Board ─────────────────────────────────────────
+  // ── Review Board ──────────────────────────────────────────
   if (subPhase === "review") {
     return (
-      <div className="min-h-screen bg-amber-50 p-4">
-        <div className="max-w-4xl mx-auto space-y-4">
+      <div className="bg-amber-50 pb-6">
+        <div className="max-w-4xl mx-auto px-4 pt-4 space-y-4">
           <div className="bg-white rounded-xl shadow px-6 py-4">
-            <h2 className="text-xl font-bold text-amber-900">Phase 5: Review Board</h2>
+            <h2 className="text-xl font-bold text-amber-900">Phase 6: Review Board</h2>
             <p className="text-gray-500 text-sm mt-1">
-              Click any item to hear its pronunciation. Items you missed are highlighted.
+              Click any item to hear its pronunciation.
+              {wrongItemIds.length > 0 && " Items marked with ⭐ are ones to pay extra attention to."}
             </p>
           </div>
 
           <div className="grid grid-cols-4 gap-3">
             {CAFE_ITEMS.map((item) => {
-              const missed = wrongItemIds.includes(item.id);
+              const needsReview = wrongItemIds.includes(item.id);
               return (
                 <button
                   key={item.id}
                   onClick={() => play(item.audioPath)}
                   className={`flex flex-col items-center p-4 rounded-xl border-2 transition-all cursor-pointer hover:shadow-md
-                    ${missed ? "border-red-400 bg-red-50 animate-pulse" : "border-amber-200 bg-white hover:border-amber-400"}`}
+                    ${needsReview ? "border-amber-400 bg-amber-50" : "border-gray-200 bg-white hover:border-amber-300"}`}
                 >
                   <span className="text-4xl mb-1">{item.emoji}</span>
                   <span className="text-base font-bold text-amber-900">{item.russian}</span>
                   <span className="text-xs text-gray-500 italic">{item.transliteration}</span>
                   <span className="text-xs text-gray-400">{item.english}</span>
-                  {missed && <span className="text-xs text-red-500 font-bold mt-1">Review!</span>}
+                  {needsReview && <span className="text-xs text-amber-600 font-medium mt-1">⭐ Pay attention</span>}
                   <span className="text-gray-300 text-xs mt-1">🔊 click to hear</span>
                 </button>
               );
@@ -232,11 +273,21 @@ export default function Phase5Recap({ wrongItemIds, onComplete }: Props) {
 
   // ── Quiz ─────────────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-amber-50 p-4">
-      <div className="max-w-2xl mx-auto space-y-4">
-        <div className="bg-white rounded-xl shadow px-6 py-3 flex items-center justify-between">
-          <span className="text-sm text-gray-500">Question {questionIndex + 1} / {questions.length}</span>
-          <span className="text-sm font-semibold text-amber-700">+25 pts · speed bonus if &lt;3s</span>
+    <div className="bg-amber-50 pb-6">
+      <div className="max-w-2xl mx-auto px-4 pt-4 space-y-4">
+        <div className="bg-white rounded-xl shadow px-4 py-3 space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-semibold text-gray-700">
+              Question {questionIndex + 1} of {questions.length}
+            </span>
+            <span className="text-xs text-amber-600">+25 pts · bonus if under 3 seconds</span>
+          </div>
+          <div className="w-full bg-gray-200 rounded-full h-2">
+            <div
+              className="bg-amber-500 h-2 rounded-full transition-all"
+              style={{ width: `${(questionIndex / questions.length) * 100}%` }}
+            />
+          </div>
         </div>
 
         <div className="bg-white rounded-xl shadow p-6 space-y-4">

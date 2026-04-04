@@ -7,23 +7,19 @@ import { useCountdown } from "@/hooks/useTimer";
 import { shuffle } from "@/utils/shuffle";
 import type { RecallAttempt, VocabItem } from "@/types/game";
 
-// Fixed trial configurations per spec
 const ROUND_CONFIGS: { promptId: string; distractorIds: string[] }[][] = [
-  // Round 1 — 4 options
   [
     { promptId: "coffee", distractorIds: ["bread", "cake", "juice"] },
     { promptId: "bread",  distractorIds: ["tea", "water", "spoon"] },
     { promptId: "soup",   distractorIds: ["milk", "sugar", "menu"] },
     { promptId: "water",  distractorIds: ["bill", "coffee", "cake"] },
   ],
-  // Round 2 — 6 options
   [
     { promptId: "cake",  distractorIds: ["soup", "juice", "sugar", "spoon", "coffee"] },
     { promptId: "milk",  distractorIds: ["tea", "water", "bread", "bill", "menu"] },
     { promptId: "sugar", distractorIds: ["cake", "spoon", "juice", "soup", "milk"] },
     { promptId: "menu",  distractorIds: ["bill", "coffee", "bread", "water", "tea"] },
   ],
-  // Round 3 — 8 options (speed bonus round)
   [
     { promptId: "bill",  distractorIds: ["coffee", "tea", "bread", "soup", "water", "juice", "cake"] },
     { promptId: "spoon", distractorIds: ["milk", "menu", "sugar", "coffee", "tea", "bread", "water"] },
@@ -37,47 +33,43 @@ const SPEED_BONUS = 10;
 const SPEED_THRESHOLD_MS = 3000;
 
 interface Props {
-  onComplete: (results: RecallAttempt[], pointsEarned: number) => void;
+  onScoreGain: (pts: number, label?: string) => void;
+  onComplete: (results: RecallAttempt[]) => void;
 }
 
 type SubPhase = "study" | "recall";
 
-// ── Flip Card for study phase ─────────────────────────────────
+// ── Flip card for study phase ─────────────────────────────────
 function FlipCard({ item, onFlip }: { item: VocabItem; onFlip: (item: VocabItem) => void }) {
   const [flipped, setFlipped] = useState(false);
 
   function handleClick() {
+    onFlip(item);
     if (!flipped) {
       setFlipped(true);
+      setTimeout(() => setFlipped(false), 3000);
     }
-    onFlip(item);
   }
 
   return (
-    <div
-      onClick={handleClick}
-      className="cursor-pointer select-none"
-      style={{ perspective: "1000px" }}
-    >
+    <div onClick={handleClick} className="cursor-pointer select-none" style={{ perspective: "1000px" }}>
       <div
         style={{
           transformStyle: "preserve-3d",
           transition: "transform 0.5s",
           transform: flipped ? "rotateY(180deg)" : "rotateY(0deg)",
           position: "relative",
-          height: "160px",
+          height: "150px",
         }}
       >
-        {/* Front face */}
         <div
-          className="absolute inset-0 flex flex-col items-center justify-center bg-white border-2 border-amber-200 rounded-xl hover:border-amber-400 hover:shadow-md transition-shadow p-3"
+          className="absolute inset-0 flex flex-col items-center justify-center bg-white border-2 border-amber-200 rounded-xl hover:border-amber-400 p-3"
           style={{ backfaceVisibility: "hidden" }}
         >
           <span className="text-4xl mb-1">{item.emoji}</span>
           <span className="text-sm font-semibold text-gray-700">{item.english}</span>
           <span className="text-xs text-gray-400 mt-2">🔊 Click to hear</span>
         </div>
-        {/* Back face */}
         <div
           className="absolute inset-0 flex flex-col items-center justify-center bg-amber-50 border-2 border-amber-400 rounded-xl p-3"
           style={{ backfaceVisibility: "hidden", transform: "rotateY(180deg)" }}
@@ -85,14 +77,13 @@ function FlipCard({ item, onFlip }: { item: VocabItem; onFlip: (item: VocabItem)
           <span className="text-3xl mb-1">{item.emoji}</span>
           <span className="text-xl font-bold text-amber-900">{item.russian}</span>
           <span className="text-sm text-gray-500 italic mt-1">({item.transliteration})</span>
-          <span className="text-xs text-green-600 mt-1">🔊</span>
         </div>
       </div>
     </div>
   );
 }
 
-export default function Phase3Recall({ onComplete }: Props) {
+export default function Phase3Recall({ onScoreGain, onComplete }: Props) {
   const [subPhase, setSubPhase] = useState<SubPhase>("study");
   const [round, setRound] = useState(0);
   const [trialIndex, setTrialIndex] = useState(0);
@@ -101,9 +92,9 @@ export default function Phase3Recall({ onComplete }: Props) {
   const [correctId, setCorrectId] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [trialStartTime, setTrialStartTime] = useState(0);
+  const [speedBonusFlash, setSpeedBonusFlash] = useState(false);
   const resultsRef = useRef<RecallAttempt[]>([]);
   const [results, setResults] = useState<RecallAttempt[]>([]);
-  const pointsRef = useRef(0);
   const [roundMessage, setRoundMessage] = useState<string | null>(null);
   const [betweenRounds, setBetweenRounds] = useState(false);
 
@@ -134,7 +125,6 @@ export default function Phase3Recall({ onComplete }: Props) {
     }
   }, [subPhase, round, trialIndex, setupTrial, betweenRounds]);
 
-  // Auto-play audio when trial starts
   useEffect(() => {
     if (subPhase === "recall" && promptItem && feedback === null && !betweenRounds) {
       const t = setTimeout(() => play(promptItem.audioPath), 300);
@@ -151,8 +141,17 @@ export default function Phase3Recall({ onComplete }: Props) {
 
     const basePoints = ROUND_POINTS[round];
     const speedBonus = correct && round === 2 && responseTime < SPEED_THRESHOLD_MS ? SPEED_BONUS : 0;
-    const earned = correct ? basePoints + speedBonus : 0;
-    pointsRef.current += earned;
+
+    if (correct) {
+      onScoreGain(basePoints);
+      if (speedBonus > 0) {
+        setSpeedBonusFlash(true);
+        setTimeout(() => {
+          onScoreGain(speedBonus, "⚡ Speed!");
+          setSpeedBonusFlash(false);
+        }, 600);
+      }
+    }
 
     const attempt: RecallAttempt = {
       trialNumber: globalTrialNum,
@@ -166,9 +165,7 @@ export default function Phase3Recall({ onComplete }: Props) {
     resultsRef.current = [...resultsRef.current, attempt];
     setResults(resultsRef.current);
 
-    setTimeout(() => {
-      advanceTrial(round, trialIndex);
-    }, 1800);
+    setTimeout(() => advanceTrial(round, trialIndex), 1800);
   }
 
   function advanceTrial(currentRound: number, currentTrial: number) {
@@ -182,15 +179,11 @@ export default function Phase3Recall({ onComplete }: Props) {
       let msg = "";
       if (currentRound === 0) msg = `Round 1 complete! ${roundCorrect}/4 correct. Ready for a bigger challenge?`;
       else if (currentRound === 1) msg = `Round 2 done! ${roundCorrect}/4 correct. Final round — can you beat the clock?`;
-      else msg = `Memory Game complete! Great job!`;
-
+      else msg = "Memory Game complete! Great job!";
       setRoundMessage(msg);
       setBetweenRounds(true);
-
       if (nextRound >= ROUND_CONFIGS.length) {
-        setTimeout(() => {
-          onComplete(resultsRef.current, pointsRef.current);
-        }, 2500);
+        setTimeout(() => onComplete(resultsRef.current), 2500);
       }
     }
   }
@@ -204,29 +197,27 @@ export default function Phase3Recall({ onComplete }: Props) {
     setupTrial(nextRound, 0);
   }
 
-  // ── Study Phase ────────────────────────────────────────────
+  // ── Study Phase ───────────────────────────────────────────
   if (subPhase === "study") {
     const mins = Math.floor(studyRemaining / 60);
     const secs = studyRemaining % 60;
     return (
-      <div className="min-h-screen bg-amber-50 p-4">
-        <div className="max-w-4xl mx-auto space-y-4">
-          <div className="bg-white rounded-xl shadow px-6 py-4 flex items-center justify-between">
+      <div className="bg-amber-50 pb-6">
+        <div className="max-w-4xl mx-auto px-4 pt-4 space-y-4">
+          <div className="bg-white rounded-xl shadow px-6 py-3 flex items-center justify-between">
             <div>
-              <h2 className="text-xl font-bold text-amber-900">Phase 3: Memory Study</h2>
-              <p className="text-gray-500 text-sm">Click any card to flip it and hear the pronunciation</p>
+              <h2 className="text-lg font-bold text-amber-900">Phase 3: Memory Study</h2>
+              <p className="text-gray-500 text-xs">Click a card to flip it and hear the pronunciation</p>
             </div>
-            <div className="text-2xl font-mono font-bold text-amber-700">
+            <div className="text-xl font-mono font-bold text-amber-700">
               {String(mins).padStart(2, "0")}:{String(secs).padStart(2, "0")}
             </div>
           </div>
-
           <div className="grid grid-cols-4 gap-3">
             {CAFE_ITEMS.map((item) => (
               <FlipCard key={item.id} item={item} onFlip={(i) => play(i.audioPath)} />
             ))}
           </div>
-
           <button
             onClick={() => setSubPhase("recall")}
             className="w-full py-3 bg-amber-700 hover:bg-amber-800 text-white font-bold rounded-xl transition-colors"
@@ -238,12 +229,12 @@ export default function Phase3Recall({ onComplete }: Props) {
     );
   }
 
-  // ── Between rounds ─────────────────────────────────────────
+  // ── Between rounds ────────────────────────────────────────
   if (betweenRounds && roundMessage) {
     const nextRound = round + 1;
     const isLast = nextRound >= ROUND_CONFIGS.length;
     return (
-      <div className="min-h-screen bg-amber-50 flex items-center justify-center p-6">
+      <div className="min-h-[60vh] bg-amber-50 flex items-center justify-center p-6">
         <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8 text-center space-y-6">
           <div className="text-5xl">{isLast ? "🏆" : "✅"}</div>
           <p className="text-xl font-semibold text-gray-700">{roundMessage}</p>
@@ -262,18 +253,18 @@ export default function Phase3Recall({ onComplete }: Props) {
 
   if (!promptItem || !currentConfig) return null;
 
-  // ── Recall Trial ───────────────────────────────────────────
+  // ── Recall Trial ──────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-amber-50 p-4">
-      <div className="max-w-3xl mx-auto space-y-4">
+    <div className="bg-amber-50 pb-6">
+      <div className="max-w-3xl mx-auto px-4 pt-4 space-y-4">
         {/* Progress header */}
-        <div className="bg-white rounded-xl shadow px-6 py-3 space-y-2">
+        <div className="bg-white rounded-xl shadow px-4 py-3 space-y-2">
           <div className="flex items-center justify-between">
             <span className="text-sm font-semibold text-gray-700">
               Question {globalTrialNum} of {totalTrials}
             </span>
             <span className="text-sm text-amber-700">
-              {round === 2 ? "⚡ Speed bonus available (&lt;3s)" : `${options.length} choices`}
+              {round === 2 ? "⚡ Speed bonus if under 3 seconds!" : `${options.length} choices`}
             </span>
           </div>
           <div className="w-full bg-gray-200 rounded-full h-2">
@@ -284,8 +275,15 @@ export default function Phase3Recall({ onComplete }: Props) {
           </div>
         </div>
 
+        {/* Speed bonus flash */}
+        {speedBonusFlash && (
+          <div className="bg-yellow-400 text-yellow-900 text-center py-2 rounded-xl font-black text-lg animate-bounce">
+            ⚡ Speed bonus! +{SPEED_BONUS} pts
+          </div>
+        )}
+
         {/* Audio prompt */}
-        <div className="bg-white rounded-xl shadow p-6 text-center space-y-3">
+        <div className="bg-white rounded-xl shadow p-5 text-center space-y-3">
           <p className="text-gray-500 text-sm">Which item is this?</p>
           <div className="text-4xl font-bold text-amber-900">{promptItem.russian}</div>
           <button

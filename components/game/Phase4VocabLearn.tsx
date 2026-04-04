@@ -13,8 +13,11 @@ function FlipCard({ item, onFlip }: { item: VocabItem; onFlip: (item: VocabItem)
   const [flipped, setFlipped] = useState(false);
 
   function handleClick() {
-    if (!flipped) setFlipped(true);
     onFlip(item);
+    if (!flipped) {
+      setFlipped(true);
+      setTimeout(() => setFlipped(false), 3000);
+    }
   }
 
   return (

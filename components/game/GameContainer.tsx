@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useReducer, useRef } from "react";
+import { useEffect, useReducer, useRef, useState } from "react";
 import type { GameAction, GameState, OrderAttempt, RecallAttempt, RecapAttempt } from "@/types/game";
 import GameHeader from "./GameHeader";
 import Phase1Tutorial from "./Phase1Tutorial";
@@ -11,6 +11,7 @@ import Phase4Roleplay from "./Phase4Roleplay";
 import Phase5Recap from "./Phase5Recap";
 import ResultsScreen from "./ResultsScreen";
 import AdminControls, { SHOW_ADMIN_CONTROLS } from "./AdminControls";
+import FloatingPoints, { type PointGain } from "./FloatingPoints";
 
 const initialState: GameState = {
   participantId: "",
@@ -57,7 +58,17 @@ export default function GameContainer() {
   const gameStartRef = useRef<number>(0);
   const totalTimeRef = useRef<number>(0);
 
-  // Auto-start the game on mount (no participant ID entry needed)
+  // Floating point gains
+  const [floatingGains, setFloatingGains] = useState<PointGain[]>([]);
+
+  function addScore(pts: number, label?: string) {
+    if (pts <= 0) return;
+    dispatch({ type: "ADD_SCORE", points: pts });
+    const id = Date.now() + Math.random();
+    setFloatingGains((prev) => [...prev, { id, pts, label }]);
+    setTimeout(() => setFloatingGains((prev) => prev.filter((g) => g.id !== id)), 2000);
+  }
+
   useEffect(() => {
     dispatch({ type: "START_GAME" });
     gameStartRef.current = Date.now();
@@ -65,41 +76,35 @@ export default function GameContainer() {
 
   function handlePhase1Complete(discoveredIds: string[], points: number) {
     discoveredIds.forEach((id) => dispatch({ type: "DISCOVER_ITEM", itemId: id }));
-    dispatch({ type: "ADD_SCORE", points });
+    addScore(points);
     dispatch({ type: "NEXT_PHASE" });
   }
 
-  function handlePhase2Complete(discovered: string[], pointsEarned: number) {
+  function handlePhase2Complete(discovered: string[]) {
     discovered.forEach((id) => dispatch({ type: "DISCOVER_ITEM", itemId: id }));
-    dispatch({ type: "ADD_SCORE", points: pointsEarned });
     dispatch({ type: "NEXT_PHASE" });
   }
 
-  function handlePhase3Complete(results: RecallAttempt[], pointsEarned: number) {
+  function handlePhase3Complete(results: RecallAttempt[]) {
     results.forEach((r) => dispatch({ type: "LOG_RECALL", result: r }));
-    dispatch({ type: "ADD_SCORE", points: pointsEarned });
     dispatch({ type: "NEXT_PHASE" });
   }
 
   function handlePhase4VocabComplete() {
-    // Pure learning phase — no points, just advance
     dispatch({ type: "NEXT_PHASE" });
   }
 
-  function handlePhase5Complete(results: OrderAttempt[], pointsEarned: number) {
+  function handlePhase5Complete(results: OrderAttempt[]) {
     results.forEach((r) => dispatch({ type: "LOG_ORDER", result: r }));
-    dispatch({ type: "ADD_SCORE", points: pointsEarned });
     dispatch({ type: "NEXT_PHASE" });
   }
 
-  function handlePhase6Complete(results: RecapAttempt[], pointsEarned: number) {
+  function handlePhase6Complete(results: RecapAttempt[]) {
     results.forEach((r) => dispatch({ type: "LOG_RECAP", result: r }));
-    dispatch({ type: "ADD_SCORE", points: pointsEarned });
     totalTimeRef.current = Date.now() - gameStartRef.current;
     dispatch({ type: "NEXT_PHASE" });
   }
 
-  // Items missed in Phase 3 (for Phase 6 review board)
   const wrongItemIds = state.recallResults
     .filter((r) => !r.correct)
     .map((r) => r.promptItemId)
@@ -119,22 +124,30 @@ export default function GameContainer() {
       {state.phase === 2 && (
         <Phase2Explore
           initialDiscovered={state.discoveredItems}
+          onScoreGain={addScore}
           onComplete={handlePhase2Complete}
         />
       )}
       {state.phase === 3 && (
-        <Phase3Recall onComplete={handlePhase3Complete} />
+        <Phase3Recall
+          onScoreGain={addScore}
+          onComplete={handlePhase3Complete}
+        />
       )}
       {state.phase === 4 && (
         <Phase4VocabLearn onComplete={handlePhase4VocabComplete} />
       )}
       {state.phase === 5 && (
-        <Phase4Roleplay onComplete={handlePhase5Complete} />
+        <Phase4Roleplay
+          onScoreGain={addScore}
+          onComplete={handlePhase5Complete}
+        />
       )}
       {state.phase === 6 && (
         <Phase5Recap
           wrongItemIds={wrongItemIds}
           recallResults={state.recallResults}
+          onScoreGain={addScore}
           onComplete={handlePhase6Complete}
         />
       )}
@@ -144,6 +157,8 @@ export default function GameContainer() {
           totalTimeMs={totalTimeRef.current}
         />
       )}
+
+      <FloatingPoints gains={floatingGains} />
 
       {SHOW_ADMIN_CONTROLS && (
         <AdminControls

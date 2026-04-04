@@ -95,6 +95,9 @@ export default function Navbar() {
     { name: "☕ Russian Lesson", href: "/game", unlocked: true, showLock: false },
   ];
 
+  // Hide the research navbar entirely when inside the game
+  if (pathname?.startsWith("/game")) return null;
+
   const isActive = (href: string) => pathname === href;
 
   return (

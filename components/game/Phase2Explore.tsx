@@ -10,16 +10,16 @@ import type { VocabItem } from "@/types/game";
 const ITEM_POSITIONS: Record<string, [number, number]> = {
   bill:   [67,  22],
   coffee: [29,  62],
-  tea:    [29.5,  85],
-  juice:  [23, 28],
-  water:  [95, 62],
-  milk:   [30, 19],
-  menu:   [49, 15],
-  spoon:  [56, 46],
-  sugar:  [17, 55],
-  bread:  [52, 60],
-  soup:   [67, 68],
-  cake:   [70, 53],
+  tea:    [29.5, 85],
+  juice:  [23,  28],
+  water:  [95,  62],
+  milk:   [30,  19],
+  menu:   [49,  15],
+  spoon:  [56,  46],
+  sugar:  [17,  55],
+  bread:  [52,  60],
+  soup:   [67,  68],
+  cake:   [70,  53],
 };
 
 interface ItemClickState {
@@ -28,10 +28,11 @@ interface ItemClickState {
 
 interface Props {
   initialDiscovered: string[];
-  onComplete: (discovered: string[], pointsEarned: number) => void;
+  onScoreGain: (pts: number) => void;
+  onComplete: (discovered: string[]) => void;
 }
 
-export default function Phase2Explore({ initialDiscovered, onComplete }: Props) {
+export default function Phase2Explore({ initialDiscovered, onScoreGain, onComplete }: Props) {
   const { play } = useAudio();
   const [itemState, setItemState] = useState<ItemClickState>(() => {
     const s: ItemClickState = {};
@@ -46,23 +47,41 @@ export default function Phase2Explore({ initialDiscovered, onComplete }: Props) 
   });
   const [milestone, setMilestone] = useState<string | null>(null);
   const [allFound, setAllFound] = useState(false);
-  const pointsRef = useRef(0);
+  const [showOneMinWarning, setShowOneMinWarning] = useState(false);
+  const [timedOut, setTimedOut] = useState(false);
+
+  // Keep a ref of discovered IDs that's always current (for closure safety)
+  const discoveredRef = useRef<string[]>(initialDiscovered);
 
   const discovered = Object.entries(itemState)
     .filter(([, s]) => s.discovered)
     .map(([id]) => id);
   const discoveredCount = discovered.length;
 
-  // 5-minute timer — auto-advances when it hits 0
+  // Keep ref in sync
+  useEffect(() => {
+    discoveredRef.current = discovered;
+  }, [discovered]);
+
   const handleTimeUp = useCallback(() => {
-    onComplete(discovered, pointsRef.current);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    setTimedOut(true);
   }, []);
+
   const { remaining: timeRemaining } = useCountdown(300, !allFound, handleTimeUp);
   const timerMins = Math.floor(timeRemaining / 60);
   const timerSecs = timeRemaining % 60;
-  const timerUrgent = timeRemaining <= 60;
+  const timerUrgent = timeRemaining <= 60 && timeRemaining > 0;
 
+  // 1-minute warning
+  useEffect(() => {
+    if (timeRemaining === 60 && !allFound) {
+      setShowOneMinWarning(true);
+      const t = setTimeout(() => setShowOneMinWarning(false), 6000);
+      return () => clearTimeout(t);
+    }
+  }, [timeRemaining, allFound]);
+
+  // Halfway milestone
   useEffect(() => {
     if (discoveredCount === 6) {
       setMilestone("Halfway there! Keep exploring.");
@@ -71,33 +90,34 @@ export default function Phase2Explore({ initialDiscovered, onComplete }: Props) 
     }
   }, [discoveredCount]);
 
+  // All items found
   useEffect(() => {
     if (discoveredCount === CAFE_ITEMS.length && !allFound) {
       setAllFound(true);
-      pointsRef.current += 50;
-      setMilestone("🎉 All items found! +50 bonus! Ready to continue?");
+      onScoreGain(50);
+      setMilestone("🎉 All items found! +50 bonus!");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [discoveredCount]);
 
   function handleClick(item: VocabItem) {
     play(item.audioPath);
+    const wasDiscovered = itemState[item.id].discovered;
 
     setItemState((prev) => {
       const current = prev[item.id];
-      const wasDiscovered = current.discovered;
       return {
         ...prev,
         [item.id]: {
           discovered: true,
           labelVisible: true,
-          reclicks: wasDiscovered ? current.reclicks + 1 : 0,
+          reclicks: current.discovered ? current.reclicks + 1 : 0,
         },
       };
     });
 
-    if (!itemState[item.id].discovered) {
-      pointsRef.current += 10;
+    if (!wasDiscovered) {
+      onScoreGain(10);
     }
 
     setTimeout(() => {
@@ -109,34 +129,40 @@ export default function Phase2Explore({ initialDiscovered, onComplete }: Props) 
   }
 
   return (
-    <div className="min-h-screen bg-amber-50 p-4">
-      <div className="max-w-5xl mx-auto space-y-4">
+    <div className="bg-amber-50 pb-6">
+      <div className="max-w-5xl mx-auto px-4 pt-4 space-y-3">
         {/* Header bar */}
-        <div className="flex items-center justify-between bg-white rounded-xl shadow px-6 py-3">
-          <span className="font-semibold text-amber-900">
-            Items discovered: <strong>{discoveredCount} / {CAFE_ITEMS.length}</strong>
+        <div className="flex items-center justify-between bg-white rounded-xl shadow px-4 py-2.5">
+          <span className="font-semibold text-amber-900 text-sm">
+            Items found: <strong>{discoveredCount} / {CAFE_ITEMS.length}</strong>
           </span>
-          <div className="flex items-center gap-4">
-            <div className="flex gap-2">
+          <div className="flex items-center gap-3">
+            <div className="flex gap-1.5">
               {CAFE_ITEMS.map((item) => (
                 <span
                   key={item.id}
-                  className={`text-lg transition-all ${itemState[item.id].discovered ? "opacity-100" : "opacity-20 grayscale"}`}
+                  className={`text-base transition-all ${itemState[item.id].discovered ? "opacity-100" : "opacity-20 grayscale"}`}
                 >
                   {item.emoji}
                 </span>
               ))}
             </div>
-            {/* Countdown timer */}
-            <span className={`font-mono font-bold text-sm px-3 py-1 rounded-lg ${timerUrgent ? "bg-red-100 text-red-700" : "bg-amber-100 text-amber-800"}`}>
+            <span className={`font-mono font-bold text-sm px-2.5 py-1 rounded-lg ${timerUrgent ? "bg-red-100 text-red-700" : "bg-amber-100 text-amber-800"}`}>
               ⏱ {String(timerMins).padStart(2, "0")}:{String(timerSecs).padStart(2, "0")}
             </span>
           </div>
         </div>
 
+        {/* 1-minute warning banner */}
+        {showOneMinWarning && (
+          <div className="bg-red-500 text-white text-center py-2.5 rounded-xl font-bold text-sm shadow-lg animate-bounce">
+            ⚠️ 1 minute remaining! Try to find the last items!
+          </div>
+        )}
+
         {/* Milestone banner */}
-        {milestone && (
-          <div className="bg-amber-500 text-white text-center py-3 rounded-xl font-bold text-lg shadow-lg">
+        {milestone && !showOneMinWarning && (
+          <div className="bg-amber-500 text-white text-center py-2.5 rounded-xl font-bold text-sm shadow-lg">
             {milestone}
           </div>
         )}
@@ -146,7 +172,6 @@ export default function Phase2Explore({ initialDiscovered, onComplete }: Props) 
           className="relative w-full rounded-2xl overflow-visible shadow-xl border-4 border-amber-800"
           style={{ paddingTop: "56.25%" }}
         >
-          {/* Background image */}
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src="/phase-2-assets/phase-2-background.png"
@@ -180,9 +205,6 @@ export default function Phase2Explore({ initialDiscovered, onComplete }: Props) 
                     <div className="text-base font-bold text-amber-900">{item.russian}</div>
                     <div className="text-xs text-gray-500 italic">({item.transliteration})</div>
                     <div className="text-xs text-gray-600">{item.english}</div>
-                    {!itemState[item.id].discovered && (
-                      <div className="text-green-600 font-bold text-xs">+10 pts!</div>
-                    )}
                   </div>
                 )}
                 {state.discovered && (
@@ -197,16 +219,34 @@ export default function Phase2Explore({ initialDiscovered, onComplete }: Props) 
           Click glowing items to discover them! Click again to replay the audio.
         </p>
 
-        {/* Continue button — only shown when all items found */}
         {allFound && (
           <button
-            onClick={() => onComplete(discovered, pointsRef.current)}
+            onClick={() => onComplete(discoveredRef.current)}
             className="w-full py-4 bg-green-600 hover:bg-green-700 text-white font-bold text-lg rounded-xl transition-colors shadow-lg"
           >
             Continue to Memory Test →
           </button>
         )}
       </div>
+
+      {/* Timer expired overlay */}
+      {timedOut && !allFound && (
+        <div className="fixed inset-0 z-[200] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl p-8 text-center space-y-4 max-w-sm w-full shadow-2xl">
+            <div className="text-5xl">⏰</div>
+            <h2 className="text-2xl font-bold text-gray-800">Time&apos;s Up!</h2>
+            <p className="text-gray-500">
+              You found <strong>{discoveredCount}</strong> out of {CAFE_ITEMS.length} items.
+            </p>
+            <button
+              onClick={() => onComplete(discoveredRef.current)}
+              className="w-full py-3 bg-amber-700 hover:bg-amber-800 text-white font-bold rounded-xl transition-colors"
+            >
+              Continue to Memory Test →
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
