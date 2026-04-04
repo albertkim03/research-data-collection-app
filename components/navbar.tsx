@@ -88,10 +88,11 @@ export default function Navbar() {
   }, [pathname]);
 
   const navItems = [
-    { name: "Home", href: "/", unlocked: true },
-    { name: "Section 1", href: "/sections/1", unlocked: unlocks.section1 },
-    { name: "Section 2", href: "/sections/2", unlocked: unlocks.section2 },
-    { name: "Section 3", href: "/sections/3", unlocked: unlocks.section3 },
+    { name: "Home", href: "/", unlocked: true, showLock: false },
+    { name: "Section 1", href: "/sections/1", unlocked: unlocks.section1, showLock: true },
+    { name: "Section 2", href: "/sections/2", unlocked: unlocks.section2, showLock: true },
+    { name: "Section 3", href: "/sections/3", unlocked: unlocks.section3, showLock: true },
+    { name: "☕ Russian Lesson", href: "/game", unlocked: true, showLock: false },
   ];
 
   const isActive = (href: string) => pathname === href;
@@ -116,8 +117,7 @@ export default function Navbar() {
         <div className="flex gap-2 items-center flex-wrap">
           {isAuthed ? (navItems.map((item) => {
             const active = isActive(item.href);
-            const isSection = item.href !== "/";
-            const isLocked = isSection && !item.unlocked;
+            const isLocked = item.showLock && !item.unlocked;
 
             return (
               <Link key={item.href} href={item.href} className="inline-block">
@@ -126,7 +126,7 @@ export default function Navbar() {
                   className={`gap-2 ${active ? "bg-primary text-white" : ""}`}
                   aria-label={`${item.name}${isLocked ? " (locked)" : ""}`}
                 >
-                  {isSection &&
+                  {item.showLock &&
                     (isLocked ? <Lock className="w-4 h-4" /> : <LockOpen className="w-4 h-4" />)}
                   {item.name}
                 </Button>
