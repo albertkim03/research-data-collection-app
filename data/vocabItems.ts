@@ -1,18 +1,18 @@
 import type { VocabItem } from "@/types/game";
 
 export const CAFE_ITEMS: VocabItem[] = [
-  { id: "coffee", russian: "кофе",   transliteration: "kofe",   english: "coffee", audioPath: "/game-mp3/game-1/audio_coffee_001.mp3", category: "noun", emoji: "☕" },
-  { id: "tea",    russian: "чай",    transliteration: "chay",   english: "tea",    audioPath: "/game-mp3/game-1/audio_tea_002.mp3",    category: "noun", emoji: "🍵" },
-  { id: "bread",  russian: "хлеб",   transliteration: "khleb",  english: "bread",  audioPath: "/game-mp3/game-1/audio_bread_003.mp3",  category: "noun", emoji: "🍞" },
-  { id: "soup",   russian: "суп",    transliteration: "sup",    english: "soup",   audioPath: "/game-mp3/game-1/audio_soup_004.mp3",   category: "noun", emoji: "🍲" },
-  { id: "water",  russian: "вода",   transliteration: "voda",   english: "water",  audioPath: "/game-mp3/game-1/audio_water_005.mp3",  category: "noun", emoji: "💧" },
-  { id: "juice",  russian: "сок",    transliteration: "sok",    english: "juice",  audioPath: "/game-mp3/game-1/audio_juice_006.mp3",  category: "noun", emoji: "🧃" },
-  { id: "cake",   russian: "торт",   transliteration: "tort",   english: "cake",   audioPath: "/game-mp3/game-1/audio_cake_007.mp3",   category: "noun", emoji: "🍰" },
-  { id: "milk",   russian: "молоко", transliteration: "moloko", english: "milk",   audioPath: "/game-mp3/game-1/audio_milk_008.mp3",   category: "noun", emoji: "🥛" },
-  { id: "menu",   russian: "меню",   transliteration: "menyu",  english: "menu",   audioPath: "/game-mp3/game-1/audio_menu_009.mp3",   category: "noun", emoji: "📋" },
-  { id: "bill",   russian: "счёт",   transliteration: "schyot", english: "bill",   audioPath: "/game-mp3/game-1/audio_bill_010.mp3",   category: "noun", emoji: "🧾" },
-  { id: "sugar",  russian: "сахар",  transliteration: "sakhar", english: "sugar",  audioPath: "/game-mp3/game-1/audio_sugar_011.mp3",  category: "noun", emoji: "🧂" },
-  { id: "spoon",  russian: "ложка",  transliteration: "lozhka", english: "spoon",  audioPath: "/game-mp3/game-1/audio_spoon_012.mp3",  category: "noun", emoji: "🥄" },
+  { id: "coffee", russian: "кофе",   transliteration: "kofe",   english: "coffee", audioPath: "/game-mp3/game-1/audio_coffee_001.mp3", category: "noun", emoji: "☕", imagePath: "/pixel-arts/cofee.png" },
+  { id: "tea",    russian: "чай",    transliteration: "chay",   english: "tea",    audioPath: "/game-mp3/game-1/audio_tea_002.mp3",    category: "noun", emoji: "🍵", imagePath: "/pixel-arts/tea.png" },
+  { id: "bread",  russian: "хлеб",   transliteration: "khleb",  english: "bread",  audioPath: "/game-mp3/game-1/audio_bread_003.mp3",  category: "noun", emoji: "🍞", imagePath: "/pixel-arts/bread.png" },
+  { id: "soup",   russian: "суп",    transliteration: "sup",    english: "soup",   audioPath: "/game-mp3/game-1/audio_soup_004.mp3",   category: "noun", emoji: "🍲", imagePath: "/pixel-arts/soup.png" },
+  { id: "water",  russian: "вода",   transliteration: "voda",   english: "water",  audioPath: "/game-mp3/game-1/audio_water_005.mp3",  category: "noun", emoji: "💧", imagePath: "/pixel-arts/water.png" },
+  { id: "juice",  russian: "сок",    transliteration: "sok",    english: "juice",  audioPath: "/game-mp3/game-1/audio_juice_006.mp3",  category: "noun", emoji: "🧃", imagePath: "/pixel-arts/juice.png" },
+  { id: "cake",   russian: "торт",   transliteration: "tort",   english: "cake",   audioPath: "/game-mp3/game-1/audio_cake_007.mp3",   category: "noun", emoji: "🍰", imagePath: "/pixel-arts/cake.png" },
+  { id: "milk",   russian: "молоко", transliteration: "moloko", english: "milk",   audioPath: "/game-mp3/game-1/audio_milk_008.mp3",   category: "noun", emoji: "🥛", imagePath: "/pixel-arts/milk.png" },
+  { id: "menu",   russian: "меню",   transliteration: "menyu",  english: "menu",   audioPath: "/game-mp3/game-1/audio_menu_009.mp3",   category: "noun", emoji: "📋", imagePath: "/pixel-arts/menu.png" },
+  { id: "bill",   russian: "счёт",   transliteration: "schyot", english: "bill",   audioPath: "/game-mp3/game-1/audio_bill_010.mp3",   category: "noun", emoji: "🧾", imagePath: "/pixel-arts/receipt.png" },
+  { id: "sugar",  russian: "сахар",  transliteration: "sakhar", english: "sugar",  audioPath: "/game-mp3/game-1/audio_sugar_011.mp3",  category: "noun", emoji: "🧂", imagePath: "/pixel-arts/sugar.png" },
+  { id: "spoon",  russian: "ложка",  transliteration: "lozhka", english: "spoon",  audioPath: "/game-mp3/game-1/audio_spoon_012.mp3",  category: "noun", emoji: "🥄", imagePath: "/pixel-arts/spoon.png" },
 ];
 
 export const NUMBERS: VocabItem[] = [

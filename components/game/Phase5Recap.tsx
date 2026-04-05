@@ -69,7 +69,12 @@ export default function Phase5Recap({ wrongItemIds, onScoreGain, onComplete }: P
     const item = CAFE_ITEMS.find((i) => i.id === id)!;
     return (
       <div className="flex flex-col items-center gap-1">
-        <span className="text-4xl">{item.emoji}</span>
+        {item.imagePath ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={item.imagePath} alt={item.english} className="w-14 h-14 object-contain" />
+        ) : (
+          <span className="text-4xl">{item.emoji}</span>
+        )}
         <span className="text-xs text-gray-500">{item.english}</span>
       </div>
     );

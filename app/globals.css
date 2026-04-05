@@ -37,6 +37,18 @@
 .animate-sound-wave2 { animation: soundWave2 0.6s ease-in-out infinite 0.15s; }
 .animate-sound-wave3 { animation: soundWave3 0.6s ease-in-out infinite 0.3s; }
 
+/* SVG avatar mouth talking */
+@keyframes mouthTalkSvg {
+  0%, 100% { transform: scaleY(0.4); }
+  35%       { transform: scaleY(1.8); }
+  65%       { transform: scaleY(1.2); }
+}
+.animate-mouth-talk-svg {
+  animation: mouthTalkSvg 0.32s ease-in-out infinite;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
 /* Enforce light theme always, remove dark mode */
 :root {
   --background: oklch(1 0 0);

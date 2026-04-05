@@ -6,6 +6,7 @@ export interface VocabItem {
   audioPath: string;
   category: "noun" | "number" | "phrase";
   emoji: string;
+  imagePath?: string; // pixel-art PNG, present for CAFE_ITEMS
 }
 
 export interface RecallAttempt {

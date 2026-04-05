@@ -37,10 +37,16 @@ export default function Phase1Tutorial({ onComplete }: Props) {
   }
 
   if (screen === "welcome") {
+    const coffeeItem = CAFE_ITEMS.find((i) => i.id === "coffee");
     return (
       <div className="min-h-screen bg-gradient-to-b from-amber-50 to-orange-50 flex items-center justify-center p-6">
         <div className="max-w-lg w-full bg-white rounded-2xl shadow-xl p-10 text-center space-y-6">
-          <div className="text-6xl">☕</div>
+          {coffeeItem?.imagePath ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={coffeeItem.imagePath} alt="coffee" className="w-20 h-20 mx-auto object-contain" />
+          ) : (
+            <div className="text-6xl">☕</div>
+          )}
           <h1 className="text-3xl font-bold text-amber-900">Welcome to Café Русский!</h1>
           <p className="text-gray-600 text-lg leading-relaxed">
             You&apos;re about to start your shift as a waiter at a Russian café. Learn Russian words by
@@ -90,7 +96,12 @@ export default function Phase1Tutorial({ onComplete }: Props) {
                     ${isTarget && !isDone ? "border-amber-400 bg-white shadow-lg animate-pulse cursor-pointer hover:scale-105" : ""}
                     ${!isTarget && !isDone ? "border-gray-200 bg-gray-50 opacity-50 cursor-not-allowed" : ""}`}
                 >
-                  <span className="text-5xl">{item.emoji}</span>
+                  {item.imagePath ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={item.imagePath} alt={item.english} className="w-16 h-16 object-contain" />
+                  ) : (
+                    <span className="text-5xl">{item.emoji}</span>
+                  )}
                   {showing && (
                     <div className="mt-2 space-y-0.5 animate-fade-in">
                       <div className="text-lg font-bold text-amber-900">{item.russian}</div>

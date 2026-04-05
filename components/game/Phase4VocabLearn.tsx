@@ -40,7 +40,12 @@ function FlipCard({ item, onFlip }: { item: VocabItem; onFlip: (item: VocabItem)
           className="absolute inset-0 flex flex-col items-center justify-center bg-white border-2 border-blue-200 rounded-xl hover:border-blue-400 hover:shadow-md transition-shadow p-3"
           style={{ backfaceVisibility: "hidden" }}
         >
-          <span className="text-3xl mb-1">{item.emoji}</span>
+          {item.imagePath ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={item.imagePath} alt={item.english} className="w-12 h-12 object-contain mb-1" />
+          ) : (
+            <span className="text-3xl mb-1">{item.emoji}</span>
+          )}
           <span className="text-sm font-semibold text-gray-700 text-center">{item.english}</span>
           <span className="text-xs text-gray-400 mt-2">🔊 Click to hear</span>
         </div>
@@ -49,7 +54,12 @@ function FlipCard({ item, onFlip }: { item: VocabItem; onFlip: (item: VocabItem)
           className="absolute inset-0 flex flex-col items-center justify-center bg-blue-50 border-2 border-blue-400 rounded-xl p-3"
           style={{ backfaceVisibility: "hidden", transform: "rotateY(180deg)" }}
         >
-          <span className="text-2xl mb-1">{item.emoji}</span>
+          {item.imagePath ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={item.imagePath} alt={item.english} className="w-10 h-10 object-contain mb-1" />
+          ) : (
+            <span className="text-2xl mb-1">{item.emoji}</span>
+          )}
           <span className="text-xl font-bold text-blue-900 text-center">{item.russian}</span>
           <span className="text-sm text-gray-500 italic mt-1 text-center">({item.transliteration})</span>
           <span className="text-xs text-green-600 mt-1">🔊</span>

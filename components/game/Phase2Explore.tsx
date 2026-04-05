@@ -8,17 +8,17 @@ import type { VocabItem } from "@/types/game";
 
 // Positions as [left%, top%] within the café scene container
 const ITEM_POSITIONS: Record<string, [number, number]> = {
-  bill:   [67,  22],
+  bill:   [67,  21],
   coffee: [29,  62],
   tea:    [29.5, 85],
-  juice:  [23,  28],
+  juice:  [23,  26],
   water:  [95,  62],
-  milk:   [30,  19],
-  menu:   [49,  15],
+  milk:   [29,  18],
+  menu:   [75,  25],
   spoon:  [56,  46],
-  sugar:  [17,  55],
-  bread:  [52,  60],
-  soup:   [67,  68],
+  sugar:  [17,  53],
+  bread:  [51,  59],
+  soup:   [67,  66],
   cake:   [70,  53],
 };
 
@@ -50,7 +50,6 @@ export default function Phase2Explore({ initialDiscovered, onScoreGain, onComple
   const [showOneMinWarning, setShowOneMinWarning] = useState(false);
   const [timedOut, setTimedOut] = useState(false);
 
-  // Keep a ref of discovered IDs that's always current (for closure safety)
   const discoveredRef = useRef<string[]>(initialDiscovered);
 
   const discovered = Object.entries(itemState)
@@ -58,7 +57,6 @@ export default function Phase2Explore({ initialDiscovered, onScoreGain, onComple
     .map(([id]) => id);
   const discoveredCount = discovered.length;
 
-  // Keep ref in sync
   useEffect(() => {
     discoveredRef.current = discovered;
   }, [discovered]);
@@ -72,7 +70,6 @@ export default function Phase2Explore({ initialDiscovered, onScoreGain, onComple
   const timerSecs = timeRemaining % 60;
   const timerUrgent = timeRemaining <= 60 && timeRemaining > 0;
 
-  // 1-minute warning
   useEffect(() => {
     if (timeRemaining === 60 && !allFound) {
       setShowOneMinWarning(true);
@@ -81,7 +78,6 @@ export default function Phase2Explore({ initialDiscovered, onScoreGain, onComple
     }
   }, [timeRemaining, allFound]);
 
-  // Halfway milestone
   useEffect(() => {
     if (discoveredCount === 6) {
       setMilestone("Halfway there! Keep exploring.");
@@ -90,7 +86,6 @@ export default function Phase2Explore({ initialDiscovered, onScoreGain, onComple
     }
   }, [discoveredCount]);
 
-  // All items found
   useEffect(() => {
     if (discoveredCount === CAFE_ITEMS.length && !allFound) {
       setAllFound(true);
@@ -137,14 +132,21 @@ export default function Phase2Explore({ initialDiscovered, onScoreGain, onComple
             Items found: <strong>{discoveredCount} / {CAFE_ITEMS.length}</strong>
           </span>
           <div className="flex items-center gap-3">
-            <div className="flex gap-1.5">
+            {/* Item progress dots using images */}
+            <div className="flex gap-1">
               {CAFE_ITEMS.map((item) => (
-                <span
+                <div
                   key={item.id}
-                  className={`text-base transition-all ${itemState[item.id].discovered ? "opacity-100" : "opacity-20 grayscale"}`}
+                  className={`transition-all duration-300 ${itemState[item.id].discovered ? "opacity-100" : "opacity-20 grayscale"}`}
+                  style={{ width: 20, height: 20 }}
                 >
-                  {item.emoji}
-                </span>
+                  {item.imagePath ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={item.imagePath} alt={item.english} className="w-5 h-5 object-contain" />
+                  ) : (
+                    <span className="text-sm">{item.emoji}</span>
+                  )}
+                </div>
               ))}
             </div>
             <span className={`font-mono font-bold text-sm px-2.5 py-1 rounded-lg ${timerUrgent ? "bg-red-100 text-red-700" : "bg-amber-100 text-amber-800"}`}>
@@ -183,32 +185,53 @@ export default function Phase2Explore({ initialDiscovered, onScoreGain, onComple
           {CAFE_ITEMS.map((item) => {
             const [left, top] = ITEM_POSITIONS[item.id];
             const state = itemState[item.id];
+
+            // Glow style: very subtle pulse for undiscovered, prominent for discovered
+            const glowStyle: React.CSSProperties = state.discovered
+              ? { filter: "drop-shadow(0 0 8px rgba(255, 210, 40, 0.9)) drop-shadow(0 0 16px rgba(255, 170, 0, 0.6))" }
+              : { filter: "drop-shadow(0 0 4px rgba(255, 220, 80, 0.35))" };
+
             return (
               <button
                 key={item.id}
                 onClick={() => handleClick(item)}
                 style={{ left: `${left}%`, top: `${top}%` }}
                 className={`absolute transform -translate-x-1/2 -translate-y-1/2 flex flex-col items-center
-                  rounded-xl px-2 py-1 border-2 transition-all cursor-pointer
+                  bg-transparent border-0 p-0 cursor-pointer
                   ${state.labelVisible ? "z-[9999]" : "z-10"}
-                  ${state.discovered
-                    ? "border-green-400 bg-white bg-opacity-90"
-                    : "border-amber-400 bg-white bg-opacity-80 animate-pulse hover:scale-110"
-                  }`}
+                  ${!state.discovered ? "animate-pulse" : ""}
+                `}
               >
-                <span className="text-2xl">{item.emoji}</span>
-                {state.discovered && !state.labelVisible && (
-                  <span className="text-green-600 text-xs font-bold">{item.russian}</span>
+                {/* Item image — no box, blends into scene */}
+                {item.imagePath ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={item.imagePath}
+                    alt={item.english}
+                    className="w-12 h-12 object-contain transition-all duration-300 hover:scale-110"
+                    style={glowStyle}
+                  />
+                ) : (
+                  <span className="text-2xl" style={glowStyle}>{item.emoji}</span>
                 )}
+
+                {/* Discovered persistent label (Russian only, compact) */}
+                {state.discovered && !state.labelVisible && (
+                  <span
+                    className="text-white text-xs font-bold"
+                    style={{ textShadow: "0 1px 3px rgba(0,0,0,0.8), 0 0 6px rgba(0,0,0,0.6)" }}
+                  >
+                    {item.russian}
+                  </span>
+                )}
+
+                {/* Click popup: Russian + transliteration + English */}
                 {state.labelVisible && (
                   <div className="absolute bottom-full mb-2 bg-white border border-amber-300 rounded-lg px-3 py-2 shadow-xl text-center whitespace-nowrap">
                     <div className="text-base font-bold text-amber-900">{item.russian}</div>
                     <div className="text-xs text-gray-500 italic">({item.transliteration})</div>
-                    <div className="text-xs text-gray-600">{item.english}</div>
+                    <div className="text-xs text-gray-600 font-medium">{item.english}</div>
                   </div>
-                )}
-                {state.discovered && (
-                  <span className="absolute -top-1 -right-1 bg-green-500 text-white text-xs rounded-full w-4 h-4 flex items-center justify-center pointer-events-none">✓</span>
                 )}
               </button>
             );

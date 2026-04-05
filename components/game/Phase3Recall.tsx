@@ -67,7 +67,12 @@ function FlipCard({ item, onFlip }: { item: VocabItem; onFlip: (item: VocabItem)
           className="absolute inset-0 flex flex-col items-center justify-center bg-white border-2 border-amber-200 rounded-xl hover:border-amber-400 p-3"
           style={{ backfaceVisibility: "hidden" }}
         >
-          <span className="text-4xl mb-1">{item.emoji}</span>
+          {item.imagePath ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={item.imagePath} alt={item.english} className="w-12 h-12 object-contain mb-1" />
+          ) : (
+            <span className="text-4xl mb-1">{item.emoji}</span>
+          )}
           <span className="text-sm font-semibold text-gray-700">{item.english}</span>
           <span className="text-xs text-gray-400 mt-2">🔊 Click to hear</span>
         </div>
@@ -75,7 +80,12 @@ function FlipCard({ item, onFlip }: { item: VocabItem; onFlip: (item: VocabItem)
           className="absolute inset-0 flex flex-col items-center justify-center bg-amber-50 border-2 border-amber-400 rounded-xl p-3"
           style={{ backfaceVisibility: "hidden", transform: "rotateY(180deg)" }}
         >
-          <span className="text-3xl mb-1">{item.emoji}</span>
+          {item.imagePath ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={item.imagePath} alt={item.english} className="w-10 h-10 object-contain mb-1" />
+          ) : (
+            <span className="text-3xl mb-1">{item.emoji}</span>
+          )}
           <span className="text-xl font-bold text-amber-900">{item.russian}</span>
           <span className="text-sm text-gray-500 italic mt-1">({item.transliteration})</span>
         </div>
@@ -321,7 +331,12 @@ export default function Phase3Recall({ onScoreGain, onComplete }: Props) {
                 disabled={feedback !== null}
                 className={`flex flex-col items-center p-4 bg-white border-2 rounded-xl transition-all ${borderClass}`}
               >
-                <span className="text-4xl">{item.emoji}</span>
+                {item.imagePath ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={item.imagePath} alt={item.english} className="w-14 h-14 object-contain" />
+                ) : (
+                  <span className="text-4xl">{item.emoji}</span>
+                )}
                 <span className="text-xs text-gray-500 mt-1">{item.english}</span>
                 {feedback !== null && (
                   <span className="text-sm mt-1 font-semibold text-gray-700">{item.russian}</span>
