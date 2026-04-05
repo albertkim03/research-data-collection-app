@@ -1,10 +1,31 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { CAFE_ITEMS } from "@/data/vocabItems";
 import { useAudio } from "@/hooks/useAudio";
 import { shuffle } from "@/utils/shuffle";
 import type { RecallAttempt, RecapAttempt } from "@/types/game";
+import SpeakingAvatar from "./SpeakingAvatar";
+
+// Static label maps — defined once outside component
+const PHRASE_LABELS: Record<string, string> = {
+  thank_you_en: "Thank you",
+  hello_en:     "Hello",
+  goodbye_en:   "Goodbye",
+  please_en:    "Please",
+  yes_en:       "Yes",
+  cake_en:      "Cake",
+  bread_en:     "Bread",
+  soup_en:      "Soup",
+  milk_en:      "Milk",
+};
+
+const ORDER_OPTION_LABELS: Record<string, React.ReactNode> = {
+  "1coffee2bread": <div className="text-center"><div className="text-2xl">☕×1 + 🍞×2</div><div className="text-xs text-gray-500 mt-1">1 coffee + 2 bread</div></div>,
+  "2coffee1bread": <div className="text-center"><div className="text-2xl">☕×2 + 🍞×1</div><div className="text-xs text-gray-500 mt-1">2 coffee + 1 bread</div></div>,
+  "1soup2bread":   <div className="text-center"><div className="text-2xl">🍲×1 + 🍞×2</div><div className="text-xs text-gray-500 mt-1">1 soup + 2 bread</div></div>,
+  "1coffee1bread": <div className="text-center"><div className="text-2xl">☕×1 + 🍞×1</div><div className="text-xs text-gray-500 mt-1">1 coffee + 1 bread</div></div>,
+};
 
 interface RecapQuestion {
   id: number;
@@ -30,15 +51,32 @@ export default function Phase5Recap({ wrongItemIds, onScoreGain, onComplete }: P
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [questionStart, setQuestionStart] = useState(0);
   const [results, setResults] = useState<RecapAttempt[]>([]);
+  const [pointsEarned, setPointsEarned] = useState(0);
+  const resultsRef = useRef<RecapAttempt[]>([]);
   const { play, isPlaying } = useAudio();
 
-  // 6 beginner-friendly questions — no Russian reading required
-  // Q1: Audio → emoji/image
-  // Q2: Hear phrase → pick English meaning
-  // Q3: Audio sequence → tray combo
-  // Q4: Audio → emoji/image
-  // Q5: Hear phrase → pick English meaning
-  // Q6: See item image → hear audio → pick English word
+  // Stable shuffled options — computed ONCE at mount, never reshuffled
+  const [stableOpts] = useState(() => [
+    shuffle(["milk", "bread", "soup", "water", "sugar", "spoon"]),    // Q1
+    shuffle(["thank_you_en", "hello_en", "goodbye_en", "please_en"]), // Q2
+    shuffle(["1coffee2bread", "2coffee1bread", "1soup2bread", "1coffee1bread"]), // Q3
+    shuffle(["spoon", "menu", "bill", "sugar", "milk", "cake"]),      // Q4
+    shuffle(["goodbye_en", "hello_en", "thank_you_en", "yes_en"]),    // Q5
+    shuffle(["cake_en", "bread_en", "soup_en", "milk_en"]),           // Q6
+  ]);
+
+  function getCafeLabel(id: string): React.ReactNode {
+    const item = CAFE_ITEMS.find((i) => i.id === id)!;
+    return (
+      <div className="flex flex-col items-center gap-1">
+        <span className="text-4xl">{item.emoji}</span>
+        <span className="text-xs text-gray-500">{item.english}</span>
+      </div>
+    );
+  }
+
+  // Questions are rebuilt each render (for fresh play/isPlaying closures)
+  // but option ORDER stays stable because stableOpts never changes.
   const questions: RecapQuestion[] = [
     {
       id: 1,
@@ -46,24 +84,19 @@ export default function Phase5Recap({ wrongItemIds, onScoreGain, onComplete }: P
       render: () => (
         <div className="text-center space-y-3">
           <p className="text-gray-500 text-sm">Hear the word, then click the correct item</p>
-          <button
-            onClick={() => play("/game-mp3/game-1/audio_milk_008.mp3")}
-            className="bg-amber-100 text-amber-800 font-bold px-6 py-3 rounded-xl text-lg hover:bg-amber-200 transition-colors"
-          >
-            🔊 {isPlaying ? "Playing…" : "Play word"}
-          </button>
+          <div className="flex items-center justify-center gap-3">
+            <SpeakingAvatar isSpeaking={isPlaying} />
+            <button
+              onClick={() => play("/game-mp3/game-1/audio_milk_008.mp3")}
+              className="bg-amber-100 text-amber-800 font-bold px-6 py-3 rounded-xl text-lg hover:bg-amber-200 transition-colors"
+            >
+              🔊 {isPlaying ? "Playing…" : "Play word"}
+            </button>
+          </div>
         </div>
       ),
       correctId: "milk",
-      options: shuffle(["milk", "bread", "soup", "water", "sugar", "spoon"]).map((id) => ({
-        id,
-        label: (
-          <div className="flex flex-col items-center gap-1">
-            <span className="text-4xl">{CAFE_ITEMS.find((i) => i.id === id)!.emoji}</span>
-            <span className="text-xs text-gray-500">{CAFE_ITEMS.find((i) => i.id === id)!.english}</span>
-          </div>
-        ),
-      })),
+      options: stableOpts[0].map((id) => ({ id, label: getCafeLabel(id) })),
     },
     {
       id: 2,
@@ -71,21 +104,22 @@ export default function Phase5Recap({ wrongItemIds, onScoreGain, onComplete }: P
       render: () => (
         <div className="text-center space-y-3">
           <p className="text-gray-500 text-sm">Listen to this Russian phrase — what does it mean?</p>
-          <button
-            onClick={() => play("/game-mp3/game-3/audio_thank_you_031.mp3")}
-            className="bg-amber-100 text-amber-800 font-bold px-6 py-3 rounded-xl text-lg hover:bg-amber-200 transition-colors"
-          >
-            🔊 {isPlaying ? "Playing…" : "Play phrase"}
-          </button>
+          <div className="flex items-center justify-center gap-3">
+            <SpeakingAvatar isSpeaking={isPlaying} />
+            <button
+              onClick={() => play("/game-mp3/game-3/audio_thank_you_031.mp3")}
+              className="bg-amber-100 text-amber-800 font-bold px-6 py-3 rounded-xl text-lg hover:bg-amber-200 transition-colors"
+            >
+              🔊 {isPlaying ? "Playing…" : "Play phrase"}
+            </button>
+          </div>
         </div>
       ),
       correctId: "thank_you_en",
-      options: shuffle([
-        { id: "thank_you_en", label: <span className="text-lg font-bold">Thank you</span> },
-        { id: "hello_en",     label: <span className="text-lg font-bold">Hello</span> },
-        { id: "goodbye_en",   label: <span className="text-lg font-bold">Goodbye</span> },
-        { id: "please_en",    label: <span className="text-lg font-bold">Please</span> },
-      ]),
+      options: stableOpts[1].map((id) => ({
+        id,
+        label: <span className="text-lg font-bold">{PHRASE_LABELS[id]}</span>,
+      })),
     },
     {
       id: 3,
@@ -93,26 +127,24 @@ export default function Phase5Recap({ wrongItemIds, onScoreGain, onComplete }: P
       render: () => (
         <div className="text-center space-y-3">
           <p className="text-gray-500 text-sm">Listen to the order, then select the correct tray</p>
-          <button
-            className="bg-amber-100 text-amber-800 font-bold px-6 py-3 rounded-xl hover:bg-amber-200 transition-colors"
-            onClick={() => {
-              play("/game-mp3/game-2/audio_one_020.mp3");
-              setTimeout(() => play("/game-mp3/game-1/audio_coffee_001.mp3"), 900);
-              setTimeout(() => play("/game-mp3/game-2/audio_two_021.mp3"), 1800);
-              setTimeout(() => play("/game-mp3/game-1/audio_bread_003.mp3"), 2700);
-            }}
-          >
-            🔊 Play order
-          </button>
+          <div className="flex items-center justify-center gap-3">
+            <SpeakingAvatar isSpeaking={isPlaying} />
+            <button
+              className="bg-amber-100 text-amber-800 font-bold px-6 py-3 rounded-xl hover:bg-amber-200 transition-colors"
+              onClick={() => {
+                play("/game-mp3/game-2/audio_one_020.mp3");
+                setTimeout(() => play("/game-mp3/game-1/audio_coffee_001.mp3"), 900);
+                setTimeout(() => play("/game-mp3/game-2/audio_two_021.mp3"), 1800);
+                setTimeout(() => play("/game-mp3/game-1/audio_bread_003.mp3"), 2700);
+              }}
+            >
+              🔊 {isPlaying ? "Playing…" : "Play order"}
+            </button>
+          </div>
         </div>
       ),
       correctId: "1coffee2bread",
-      options: shuffle([
-        { id: "1coffee2bread", label: <div className="text-center"><div className="text-2xl">☕×1 + 🍞×2</div><div className="text-xs text-gray-500 mt-1">1 coffee + 2 bread</div></div> },
-        { id: "2coffee1bread", label: <div className="text-center"><div className="text-2xl">☕×2 + 🍞×1</div><div className="text-xs text-gray-500 mt-1">2 coffee + 1 bread</div></div> },
-        { id: "1soup2bread",   label: <div className="text-center"><div className="text-2xl">🍲×1 + 🍞×2</div><div className="text-xs text-gray-500 mt-1">1 soup + 2 bread</div></div> },
-        { id: "1coffee1bread", label: <div className="text-center"><div className="text-2xl">☕×1 + 🍞×1</div><div className="text-xs text-gray-500 mt-1">1 coffee + 1 bread</div></div> },
-      ]),
+      options: stableOpts[2].map((id) => ({ id, label: ORDER_OPTION_LABELS[id] })),
     },
     {
       id: 4,
@@ -120,24 +152,19 @@ export default function Phase5Recap({ wrongItemIds, onScoreGain, onComplete }: P
       render: () => (
         <div className="text-center space-y-3">
           <p className="text-gray-500 text-sm">Hear the word, then click the correct item</p>
-          <button
-            onClick={() => play("/game-mp3/game-1/audio_spoon_012.mp3")}
-            className="bg-amber-100 text-amber-800 font-bold px-6 py-3 rounded-xl text-lg hover:bg-amber-200 transition-colors"
-          >
-            🔊 {isPlaying ? "Playing…" : "Play word"}
-          </button>
+          <div className="flex items-center justify-center gap-3">
+            <SpeakingAvatar isSpeaking={isPlaying} />
+            <button
+              onClick={() => play("/game-mp3/game-1/audio_spoon_012.mp3")}
+              className="bg-amber-100 text-amber-800 font-bold px-6 py-3 rounded-xl text-lg hover:bg-amber-200 transition-colors"
+            >
+              🔊 {isPlaying ? "Playing…" : "Play word"}
+            </button>
+          </div>
         </div>
       ),
       correctId: "spoon",
-      options: shuffle(["spoon", "menu", "bill", "sugar", "milk", "cake"]).map((id) => ({
-        id,
-        label: (
-          <div className="flex flex-col items-center gap-1">
-            <span className="text-4xl">{CAFE_ITEMS.find((i) => i.id === id)!.emoji}</span>
-            <span className="text-xs text-gray-500">{CAFE_ITEMS.find((i) => i.id === id)!.english}</span>
-          </div>
-        ),
-      })),
+      options: stableOpts[3].map((id) => ({ id, label: getCafeLabel(id) })),
     },
     {
       id: 5,
@@ -145,44 +172,46 @@ export default function Phase5Recap({ wrongItemIds, onScoreGain, onComplete }: P
       render: () => (
         <div className="text-center space-y-3">
           <p className="text-gray-500 text-sm">Listen to this Russian phrase — what does it mean?</p>
-          <button
-            onClick={() => play("/game-mp3/game-3/audio_goodbye_035.mp3")}
-            className="bg-amber-100 text-amber-800 font-bold px-6 py-3 rounded-xl text-lg hover:bg-amber-200 transition-colors"
-          >
-            🔊 {isPlaying ? "Playing…" : "Play phrase"}
-          </button>
+          <div className="flex items-center justify-center gap-3">
+            <SpeakingAvatar isSpeaking={isPlaying} />
+            <button
+              onClick={() => play("/game-mp3/game-3/audio_goodbye_035.mp3")}
+              className="bg-amber-100 text-amber-800 font-bold px-6 py-3 rounded-xl text-lg hover:bg-amber-200 transition-colors"
+            >
+              🔊 {isPlaying ? "Playing…" : "Play phrase"}
+            </button>
+          </div>
         </div>
       ),
       correctId: "goodbye_en",
-      options: shuffle([
-        { id: "goodbye_en",   label: <span className="text-lg font-bold">Goodbye</span> },
-        { id: "hello_en",     label: <span className="text-lg font-bold">Hello</span> },
-        { id: "thank_you_en", label: <span className="text-lg font-bold">Thank you</span> },
-        { id: "yes_en",       label: <span className="text-lg font-bold">Yes</span> },
-      ]),
+      options: stableOpts[4].map((id) => ({
+        id,
+        label: <span className="text-lg font-bold">{PHRASE_LABELS[id]}</span>,
+      })),
     },
     {
       id: 6,
-      type: "image-audio-to-english",
+      // Changed: removed emoji from prompt — audio-only so the image doesn't give it away
+      type: "audio-to-english",
       render: () => (
         <div className="text-center space-y-3">
-          <p className="text-gray-500 text-sm">Look at this item and listen — what is it called in English?</p>
-          <div className="text-6xl">🍰</div>
-          <button
-            onClick={() => play("/game-mp3/game-1/audio_cake_007.mp3")}
-            className="bg-amber-100 text-amber-800 font-bold px-6 py-2 rounded-xl hover:bg-amber-200 transition-colors"
-          >
-            🔊 {isPlaying ? "Playing…" : "Hear it"}
-          </button>
+          <p className="text-gray-500 text-sm">Listen to this Russian word — what does it mean in English?</p>
+          <div className="flex items-center justify-center gap-3">
+            <SpeakingAvatar isSpeaking={isPlaying} />
+            <button
+              onClick={() => play("/game-mp3/game-1/audio_cake_007.mp3")}
+              className="bg-amber-100 text-amber-800 font-bold px-6 py-3 rounded-xl text-lg hover:bg-amber-200 transition-colors"
+            >
+              🔊 {isPlaying ? "Playing…" : "Play word"}
+            </button>
+          </div>
         </div>
       ),
       correctId: "cake_en",
-      options: shuffle([
-        { id: "cake_en",  label: <span className="text-lg font-bold">Cake</span> },
-        { id: "bread_en", label: <span className="text-lg font-bold">Bread</span> },
-        { id: "soup_en",  label: <span className="text-lg font-bold">Soup</span> },
-        { id: "milk_en",  label: <span className="text-lg font-bold">Milk</span> },
-      ]),
+      options: stableOpts[5].map((id) => ({
+        id,
+        label: <span className="text-lg font-bold">{PHRASE_LABELS[id]}</span>,
+      })),
     },
   ];
 
@@ -193,6 +222,7 @@ export default function Phase5Recap({ wrongItemIds, onScoreGain, onComplete }: P
       setQuestionStart(Date.now());
       setFeedback(null);
       setSelectedId(null);
+      setPointsEarned(0);
     }
   }, [subPhase, questionIndex]);
 
@@ -205,7 +235,9 @@ export default function Phase5Recap({ wrongItemIds, onScoreGain, onComplete }: P
 
     const basePoints = 25;
     const speedBonus = correct && responseTime < 3000 ? 10 : 0;
-    if (correct) onScoreGain(basePoints + speedBonus, speedBonus > 0 ? "⚡ Fast!" : undefined);
+    const earned = correct ? basePoints + speedBonus : 0;
+    setPointsEarned(earned);
+    if (correct) onScoreGain(earned, speedBonus > 0 ? "⚡ Fast!" : undefined);
 
     const attempt: RecapAttempt = {
       questionNumber: currentQuestion.id,
@@ -215,15 +247,17 @@ export default function Phase5Recap({ wrongItemIds, onScoreGain, onComplete }: P
       timestamp: Date.now(),
     };
     const newResults = [...results, attempt];
+    resultsRef.current = newResults;
     setResults(newResults);
+    // No auto-advance — user clicks "Next Question" button
+  }
 
-    setTimeout(() => {
-      if (questionIndex + 1 < questions.length) {
-        setQuestionIndex((i) => i + 1);
-      } else {
-        onComplete(newResults);
-      }
-    }, 1500);
+  function handleNext() {
+    if (questionIndex + 1 < questions.length) {
+      setQuestionIndex((i) => i + 1);
+    } else {
+      onComplete(resultsRef.current);
+    }
   }
 
   // ── Review Board ──────────────────────────────────────────
@@ -275,6 +309,7 @@ export default function Phase5Recap({ wrongItemIds, onScoreGain, onComplete }: P
   return (
     <div className="bg-amber-50 pb-6">
       <div className="max-w-2xl mx-auto px-4 pt-4 space-y-4">
+        {/* Progress header */}
         <div className="bg-white rounded-xl shadow px-4 py-3 space-y-2">
           <div className="flex items-center justify-between">
             <span className="text-sm font-semibold text-gray-700">
@@ -290,10 +325,12 @@ export default function Phase5Recap({ wrongItemIds, onScoreGain, onComplete }: P
           </div>
         </div>
 
+        {/* Question prompt */}
         <div className="bg-white rounded-xl shadow p-6 space-y-4">
           {currentQuestion.render()}
         </div>
 
+        {/* Options */}
         <div className={`grid gap-3 ${currentQuestion.options.length <= 4 ? "grid-cols-2" : "grid-cols-3"}`}>
           {currentQuestion.options.map((opt) => {
             const isSelected = selectedId === opt.id;
@@ -316,6 +353,34 @@ export default function Phase5Recap({ wrongItemIds, onScoreGain, onComplete }: P
             );
           })}
         </div>
+
+        {/* Inline feedback with points */}
+        {feedback !== null && (
+          <div className={`rounded-xl p-4 text-center border-2 ${
+            feedback ? "bg-green-50 border-green-300" : "bg-red-50 border-red-300"
+          }`}>
+            {feedback ? (
+              <div className="space-y-1">
+                <p className="text-green-700 font-black text-lg">Correct!</p>
+                {pointsEarned > 0 && (
+                  <p className="text-green-600 font-black text-4xl">+{pointsEarned} pts</p>
+                )}
+              </div>
+            ) : (
+              <p className="text-red-700 font-semibold">Not quite — the correct answer is highlighted in green above</p>
+            )}
+          </div>
+        )}
+
+        {/* Next button — only shown after answering */}
+        {feedback !== null && (
+          <button
+            onClick={handleNext}
+            className="w-full py-3 bg-amber-700 hover:bg-amber-800 text-white font-bold rounded-xl transition-colors"
+          >
+            {questionIndex + 1 < questions.length ? "Next Question →" : "See Results →"}
+          </button>
+        )}
       </div>
     </div>
   );

@@ -6,6 +6,7 @@ import { useAudio } from "@/hooks/useAudio";
 import { useCountdown } from "@/hooks/useTimer";
 import { shuffle } from "@/utils/shuffle";
 import type { RecallAttempt, VocabItem } from "@/types/game";
+import SpeakingAvatar from "./SpeakingAvatar";
 
 const ROUND_CONFIGS: { promptId: string; distractorIds: string[] }[][] = [
   [
@@ -164,8 +165,7 @@ export default function Phase3Recall({ onScoreGain, onComplete }: Props) {
     };
     resultsRef.current = [...resultsRef.current, attempt];
     setResults(resultsRef.current);
-
-    setTimeout(() => advanceTrial(round, trialIndex), 1800);
+    // No auto-advance — user clicks "Next →"
   }
 
   function advanceTrial(currentRound: number, currentTrial: number) {
@@ -182,9 +182,7 @@ export default function Phase3Recall({ onScoreGain, onComplete }: Props) {
       else msg = "Memory Game complete! Great job!";
       setRoundMessage(msg);
       setBetweenRounds(true);
-      if (nextRound >= ROUND_CONFIGS.length) {
-        setTimeout(() => onComplete(resultsRef.current), 2500);
-      }
+      // No auto-complete — user clicks "Continue" button
     }
   }
 
@@ -238,7 +236,14 @@ export default function Phase3Recall({ onScoreGain, onComplete }: Props) {
         <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8 text-center space-y-6">
           <div className="text-5xl">{isLast ? "🏆" : "✅"}</div>
           <p className="text-xl font-semibold text-gray-700">{roundMessage}</p>
-          {!isLast && (
+          {isLast ? (
+            <button
+              onClick={() => onComplete(resultsRef.current)}
+              className="w-full py-3 bg-amber-700 hover:bg-amber-800 text-white font-bold rounded-xl transition-colors"
+            >
+              Continue to Vocabulary →
+            </button>
+          ) : (
             <button
               onClick={handleContinueRound}
               className="w-full py-3 bg-amber-700 hover:bg-amber-800 text-white font-bold rounded-xl transition-colors"
@@ -286,13 +291,16 @@ export default function Phase3Recall({ onScoreGain, onComplete }: Props) {
         <div className="bg-white rounded-xl shadow p-5 text-center space-y-3">
           <p className="text-gray-500 text-sm">Which item is this?</p>
           <div className="text-4xl font-bold text-amber-900">{promptItem.russian}</div>
-          <button
-            onClick={() => play(promptItem.audioPath)}
-            disabled={isPlaying}
-            className="bg-amber-100 hover:bg-amber-200 text-amber-800 font-semibold px-6 py-2 rounded-lg transition-colors"
-          >
-            🔊 {isPlaying ? "Playing…" : "Play"}
-          </button>
+          <div className="flex items-center justify-center gap-3">
+            <SpeakingAvatar isSpeaking={isPlaying} />
+            <button
+              onClick={() => play(promptItem.audioPath)}
+              disabled={isPlaying}
+              className="bg-amber-100 hover:bg-amber-200 text-amber-800 font-semibold px-6 py-2 rounded-lg transition-colors"
+            >
+              🔊 {isPlaying ? "Playing…" : "Play"}
+            </button>
+          </div>
         </div>
 
         {/* Options grid */}
@@ -331,6 +339,16 @@ export default function Phase3Recall({ onScoreGain, onComplete }: Props) {
               {" "}({CAFE_ITEMS.find((i) => i.id === correctId)?.english})
             </p>
           </div>
+        )}
+
+        {/* Next button — only visible after answering */}
+        {feedback !== null && (
+          <button
+            onClick={() => advanceTrial(round, trialIndex)}
+            className="w-full py-3 bg-amber-700 hover:bg-amber-800 text-white font-bold rounded-xl transition-colors"
+          >
+            Next →
+          </button>
         )}
       </div>
     </div>

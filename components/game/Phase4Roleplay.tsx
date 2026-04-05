@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { CAFE_ITEMS } from "@/data/vocabItems";
 import { useAudio } from "@/hooks/useAudio";
 import type { OrderAttempt } from "@/types/game";
+import SpeakingAvatar from "./SpeakingAvatar";
 
 interface OrderDef {
   id: number;
@@ -242,8 +243,8 @@ export default function Phase4Roleplay({ onScoreGain, onComplete }: Props) {
         {/* Customer speech bubble */}
         <div className="bg-white rounded-xl shadow p-4">
           <div className="flex items-start gap-3">
-            <div className="flex-shrink-0 w-12 h-12 bg-amber-200 rounded-full flex items-center justify-center text-2xl">
-              👤
+            <div className="flex-shrink-0">
+              <SpeakingAvatar isSpeaking={isPlaying} />
             </div>
             <div className="flex-1 min-w-0">
               <div className="bg-amber-50 border border-amber-200 rounded-2xl rounded-tl-none px-4 py-3">
@@ -257,14 +258,6 @@ export default function Phase4Roleplay({ onScoreGain, onComplete }: Props) {
                 >
                   🔊 {isPlaying ? "Playing…" : "Play Order"}
                 </button>
-                {!replayUsed && (
-                  <button
-                    onClick={() => { setReplayUsed(true); playSequence(order.audioSequence); }}
-                    className="text-sm text-gray-400 hover:text-gray-600 underline"
-                  >
-                    Replay
-                  </button>
-                )}
               </div>
             </div>
           </div>
