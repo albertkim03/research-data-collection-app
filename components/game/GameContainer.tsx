@@ -23,6 +23,7 @@ const initialState: GameState = {
   phaseStartTime: 0,
   discoveredItems: [],
   recallResults: [],
+  phraseGameCorrect: 0,
   orderResults: [],
   recapResults: [],
 };
@@ -44,6 +45,8 @@ function reducer(state: GameState, action: GameAction): GameState {
       return { ...state, score: state.score + action.points };
     case "LOG_RECALL":
       return { ...state, recallResults: [...state.recallResults, action.result] };
+    case "SET_PHRASE_CORRECT":
+      return { ...state, phraseGameCorrect: action.count };
     case "LOG_ORDER":
       return { ...state, orderResults: [...state.orderResults, action.result] };
     case "LOG_RECAP":
@@ -103,7 +106,8 @@ export default function GameContainer() {
     setPhaseIntroFor(5);
   }
 
-  function handlePhase5PhraseComplete() {
+  function handlePhase5PhraseComplete(correctCount: number) {
+    dispatch({ type: "SET_PHRASE_CORRECT", count: correctCount });
     dispatch({ type: "NEXT_PHASE" });
     setPhaseIntroFor(6);
   }
@@ -156,6 +160,7 @@ export default function GameContainer() {
         <Phase4PhraseGame
           onScoreGain={addScore}
           onComplete={handlePhase5PhraseComplete}
+          paused={phaseIntroFor !== null}
         />
       )}
       {state.phase === 6 && (

@@ -299,7 +299,7 @@ export default function Phase5Recap({ wrongItemIds, onScoreGain, onComplete }: P
             <h2 className="text-xl font-bold text-amber-900">Phase 6: Review Board</h2>
             <p className="text-gray-500 text-sm mt-1">
               Click any item to hear its pronunciation.
-              {wrongItemIds.length > 0 && " Items marked with ⭐ are ones to pay extra attention to."}
+              {wrongItemIds.length > 0 && " Items marked with ⭐ are ones you got wrong in the Memory Challenge — give them extra attention!"}
             </p>
           </div>
 

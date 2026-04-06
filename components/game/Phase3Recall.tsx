@@ -8,6 +8,7 @@ import { shuffle } from "@/utils/shuffle";
 import type { RecallAttempt, VocabItem } from "@/types/game";
 import SpeakingAvatar from "./SpeakingAvatar";
 import { useSoundEffect } from "@/hooks/useSoundEffect";
+import PhaseIntroOverlay from "./PhaseIntroOverlay";
 
 const ROUND_CONFIGS: { promptId: string; distractorIds: string[] }[][] = [
   [
@@ -97,6 +98,7 @@ function FlipCard({ item, onFlip }: { item: VocabItem; onFlip: (item: VocabItem)
 
 export default function Phase3Recall({ onScoreGain, onComplete }: Props) {
   const [subPhase, setSubPhase] = useState<SubPhase>("study");
+  const [showRecallIntro, setShowRecallIntro] = useState(false);
   const [round, setRound] = useState(0);
   const [trialIndex, setTrialIndex] = useState(0);
   const [options, setOptions] = useState<VocabItem[]>([]);
@@ -112,8 +114,8 @@ export default function Phase3Recall({ onScoreGain, onComplete }: Props) {
 
   const { play, isPlaying } = useAudio();
   const { playCorrect, playWrong } = useSoundEffect();
-  const { remaining: studyRemaining } = useCountdown(90, subPhase === "study", () =>
-    setSubPhase("recall")
+  const { remaining: studyRemaining } = useCountdown(300, subPhase === "study", () =>
+    setShowRecallIntro(true)
   );
 
   const totalTrials = ROUND_CONFIGS.flat().length;
@@ -210,6 +212,16 @@ export default function Phase3Recall({ onScoreGain, onComplete }: Props) {
     setupTrial(nextRound, 0);
   }
 
+  // ── Recall intro overlay (shows BEFORE switching to recall) ──
+  if (showRecallIntro) {
+    return (
+      <PhaseIntroOverlay
+        phase={31}
+        onClose={() => { setShowRecallIntro(false); setSubPhase("recall"); }}
+      />
+    );
+  }
+
   // ── Study Phase ───────────────────────────────────────────
   if (subPhase === "study") {
     const mins = Math.floor(studyRemaining / 60);
@@ -232,7 +244,7 @@ export default function Phase3Recall({ onScoreGain, onComplete }: Props) {
             ))}
           </div>
           <button
-            onClick={() => setSubPhase("recall")}
+            onClick={() => setShowRecallIntro(true)}
             className="w-full py-3 bg-amber-700 hover:bg-amber-800 text-white font-bold rounded-xl transition-colors"
           >
             I&apos;m Ready → Start Memory Test
