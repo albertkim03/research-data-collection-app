@@ -18,8 +18,8 @@ export default function ResultsScreen({ gameState, totalTimeMs }: Props) {
   const recapCorrect = recapResults.filter((r) => r.correct).length;
   const pct = Math.round((score / MAX_SCORE) * 100);
 
-  const stars = pct >= 80 ? 3 : pct >= 50 ? 2 : 1;
-  const starLabel = ["", "Keep practising!", "Good effort!", "Outstanding!"][stars];
+  const stars = pct >= 90 ? 5 : pct >= 75 ? 4 : pct >= 60 ? 3 : pct >= 40 ? 2 : 1;
+  const starLabel = ["", "Keep practising!", "Good effort!", "Solid work!", "Great performance!", "Outstanding!"][stars];
 
   const totalMins = Math.floor(totalTimeMs / 60000);
   const totalSecs = Math.floor((totalTimeMs % 60000) / 1000);
@@ -58,7 +58,7 @@ export default function ResultsScreen({ gameState, totalTimeMs }: Props) {
             {score} <span className="text-2xl text-gray-400">/ {MAX_SCORE}</span>
           </div>
           <div className="flex justify-center gap-1 text-3xl">
-            {Array.from({ length: 3 }, (_, i) => (
+            {Array.from({ length: 5 }, (_, i) => (
               <span key={i} className={i < stars ? "text-yellow-400" : "text-gray-200"}>★</span>
             ))}
           </div>

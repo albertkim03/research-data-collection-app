@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { CAFE_ITEMS } from "@/data/vocabItems";
 import { useAudio } from "@/hooks/useAudio";
+import { useSoundEffect } from "@/hooks/useSoundEffect";
 import { useCountdown } from "@/hooks/useTimer";
 import type { VocabItem } from "@/types/game";
 
@@ -34,6 +35,7 @@ interface Props {
 
 export default function Phase2Explore({ initialDiscovered, onScoreGain, onComplete }: Props) {
   const { play } = useAudio();
+  const { playCorrect } = useSoundEffect();
   const [itemState, setItemState] = useState<ItemClickState>(() => {
     const s: ItemClickState = {};
     CAFE_ITEMS.forEach((item) => {
@@ -112,6 +114,7 @@ export default function Phase2Explore({ initialDiscovered, onScoreGain, onComple
     });
 
     if (!wasDiscovered) {
+      playCorrect();
       onScoreGain(10);
     }
 

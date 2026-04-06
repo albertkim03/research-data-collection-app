@@ -13,6 +13,7 @@ import Phase5Recap from "./Phase5Recap";
 import ResultsScreen from "./ResultsScreen";
 import AdminControls, { SHOW_ADMIN_CONTROLS } from "./AdminControls";
 import FloatingPoints, { type PointGain } from "./FloatingPoints";
+import PhaseIntroOverlay from "./PhaseIntroOverlay";
 
 const initialState: GameState = {
   participantId: "",
@@ -62,6 +63,9 @@ export default function GameContainer() {
   // Floating point gains
   const [floatingGains, setFloatingGains] = useState<PointGain[]>([]);
 
+  // Phase intro overlay — shown on normal progression (not admin jumps)
+  const [phaseIntroFor, setPhaseIntroFor] = useState<number | null>(null);
+
   function addScore(pts: number, label?: string) {
     if (pts <= 0) return;
     dispatch({ type: "ADD_SCORE", points: pts });
@@ -75,33 +79,39 @@ export default function GameContainer() {
     gameStartRef.current = Date.now();
   }, []);
 
-  function handlePhase1Complete(discoveredIds: string[], points: number) {
+  function handlePhase1Complete(discoveredIds: string[]) {
     discoveredIds.forEach((id) => dispatch({ type: "DISCOVER_ITEM", itemId: id }));
-    addScore(points);
+    // Score was already added per-click inside Phase1Tutorial
     dispatch({ type: "NEXT_PHASE" });
+    setPhaseIntroFor(2);
   }
 
   function handlePhase2Complete(discovered: string[]) {
     discovered.forEach((id) => dispatch({ type: "DISCOVER_ITEM", itemId: id }));
     dispatch({ type: "NEXT_PHASE" });
+    setPhaseIntroFor(3);
   }
 
   function handlePhase3Complete(results: RecallAttempt[]) {
     results.forEach((r) => dispatch({ type: "LOG_RECALL", result: r }));
     dispatch({ type: "NEXT_PHASE" });
+    setPhaseIntroFor(4);
   }
 
   function handlePhase4VocabComplete() {
     dispatch({ type: "NEXT_PHASE" });
+    setPhaseIntroFor(5);
   }
 
   function handlePhase5PhraseComplete() {
     dispatch({ type: "NEXT_PHASE" });
+    setPhaseIntroFor(6);
   }
 
   function handlePhase6RoleplayComplete(results: OrderAttempt[]) {
     results.forEach((r) => dispatch({ type: "LOG_ORDER", result: r }));
     dispatch({ type: "NEXT_PHASE" });
+    setPhaseIntroFor(7);
   }
 
   function handlePhase7RecapComplete(results: RecapAttempt[]) {
@@ -124,7 +134,7 @@ export default function GameContainer() {
       />
 
       {state.phase === 1 && (
-        <Phase1Tutorial onComplete={handlePhase1Complete} />
+        <Phase1Tutorial onScoreGain={addScore} onComplete={handlePhase1Complete} />
       )}
       {state.phase === 2 && (
         <Phase2Explore
@@ -170,6 +180,13 @@ export default function GameContainer() {
       )}
 
       <FloatingPoints gains={floatingGains} />
+
+      {phaseIntroFor !== null && (
+        <PhaseIntroOverlay
+          phase={phaseIntroFor}
+          onClose={() => setPhaseIntroFor(null)}
+        />
+      )}
 
       {SHOW_ADMIN_CONTROLS && (
         <AdminControls
