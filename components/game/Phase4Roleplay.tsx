@@ -275,7 +275,11 @@ export default function Phase4Roleplay({ onScoreGain, onComplete }: Props) {
           <p className="text-xl font-bold text-gray-800">
             {feedback === "correct" ? "Спасибо! Order delivered correctly!" : "Keep practising!"}
           </p>
-          <p className="text-gray-500 text-sm">Order {order.id} of {ORDERS.length}</p>
+          <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-2.5">
+            <p className="text-xs text-amber-600 font-semibold uppercase tracking-wide mb-0.5">The order was:</p>
+            <p className="text-amber-900 font-semibold italic">"{order.english}"</p>
+          </div>
+          <p className="text-gray-400 text-xs">Order {order.id} of {ORDERS.length}</p>
           <button
             onClick={handleNextOrder}
             className="w-full py-3 bg-amber-700 hover:bg-amber-800 text-white font-bold rounded-xl transition-colors"
@@ -350,8 +354,9 @@ export default function Phase4Roleplay({ onScoreGain, onComplete }: Props) {
             {/* Customer speech bubble */}
             <div className="bg-white rounded-xl shadow p-3">
               <div className="flex items-start gap-3">
-                <div className="shrink-0">
+                <div className="shrink-0 flex flex-col items-center gap-0.5">
                   <SpeakingAvatar isSpeaking={isPlaying} />
+                  <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">Customer</span>
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="bg-amber-50 border border-amber-200 rounded-2xl rounded-tl-none px-4 py-3">

@@ -39,8 +39,8 @@ export interface RecapAttempt {
 
 export interface GameState {
   participantId: string;
-  // 1=Tutorial 2=Explore 3=Recall 4=VocabLearn 5=Roleplay 6=Recap 7=Results
-  phase: 1 | 2 | 3 | 4 | 5 | 6 | 7;
+  // 1=Tutorial 2=Explore 3=Recall 4=VocabLearn 5=PhraseGame 6=Roleplay 7=Recap 8=Results
+  phase: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
   score: number;
   startTime: number;
   phaseStartTime: number;

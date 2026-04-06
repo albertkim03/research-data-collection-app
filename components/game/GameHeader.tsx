@@ -4,8 +4,8 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTimer } from "@/hooks/useTimer";
 
-const PHASE_LABELS = ["", "Tutorial", "Explore", "Memory", "Vocab", "Role-play", "Recap", "Results"];
-const TOTAL_LEARNING_PHASES = 6;
+const PHASE_LABELS = ["", "Tutorial", "Explore", "Memory", "Vocab", "Phrase Fever", "Role-play", "Recap", "Results"];
+const TOTAL_LEARNING_PHASES = 7;
 
 interface Props {
   phase: number;
@@ -15,7 +15,7 @@ interface Props {
 
 export default function GameHeader({ phase, score, gameStarted }: Props) {
   const router = useRouter();
-  const { formatted } = useTimer(gameStarted && phase >= 1 && phase <= 6);
+  const { formatted } = useTimer(gameStarted && phase >= 1 && phase <= 7);
   const [showExitDialog, setShowExitDialog] = useState(false);
 
   const progressPct = Math.min(((phase - 1) / TOTAL_LEARNING_PHASES) * 100, 100);
@@ -35,9 +35,9 @@ export default function GameHeader({ phase, score, gameStarted }: Props) {
           {/* Phase indicator */}
           <div className="flex items-center gap-2 min-w-0">
             <span className="font-bold text-base hidden sm:block">Café Русский</span>
-            {phase >= 1 && phase <= 7 && (
+            {phase >= 1 && phase <= 8 && (
               <span className="bg-amber-700 rounded-full px-2.5 py-0.5 text-xs whitespace-nowrap">
-                Phase {Math.min(phase, 6)}/6: {PHASE_LABELS[phase] ?? "Results"}
+                Phase {Math.min(phase, 7)}/7: {PHASE_LABELS[phase] ?? "Results"}
               </span>
             )}
           </div>

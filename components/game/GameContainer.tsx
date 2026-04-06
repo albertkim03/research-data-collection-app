@@ -7,6 +7,7 @@ import Phase1Tutorial from "./Phase1Tutorial";
 import Phase2Explore from "./Phase2Explore";
 import Phase3Recall from "./Phase3Recall";
 import Phase4VocabLearn from "./Phase4VocabLearn";
+import Phase4PhraseGame from "./Phase4PhraseGame";
 import Phase4Roleplay from "./Phase4Roleplay";
 import Phase5Recap from "./Phase5Recap";
 import ResultsScreen from "./ResultsScreen";
@@ -94,12 +95,16 @@ export default function GameContainer() {
     dispatch({ type: "NEXT_PHASE" });
   }
 
-  function handlePhase5Complete(results: OrderAttempt[]) {
+  function handlePhase5PhraseComplete() {
+    dispatch({ type: "NEXT_PHASE" });
+  }
+
+  function handlePhase6RoleplayComplete(results: OrderAttempt[]) {
     results.forEach((r) => dispatch({ type: "LOG_ORDER", result: r }));
     dispatch({ type: "NEXT_PHASE" });
   }
 
-  function handlePhase6Complete(results: RecapAttempt[]) {
+  function handlePhase7RecapComplete(results: RecapAttempt[]) {
     results.forEach((r) => dispatch({ type: "LOG_RECAP", result: r }));
     totalTimeRef.current = Date.now() - gameStartRef.current;
     dispatch({ type: "NEXT_PHASE" });
@@ -115,7 +120,7 @@ export default function GameContainer() {
       <GameHeader
         phase={state.phase}
         score={state.score}
-        gameStarted={state.phase >= 1 && state.phase <= 6}
+        gameStarted={state.phase >= 1 && state.phase <= 7}
       />
 
       {state.phase === 1 && (
@@ -138,20 +143,26 @@ export default function GameContainer() {
         <Phase4VocabLearn onComplete={handlePhase4VocabComplete} />
       )}
       {state.phase === 5 && (
-        <Phase4Roleplay
+        <Phase4PhraseGame
           onScoreGain={addScore}
-          onComplete={handlePhase5Complete}
+          onComplete={handlePhase5PhraseComplete}
         />
       )}
       {state.phase === 6 && (
+        <Phase4Roleplay
+          onScoreGain={addScore}
+          onComplete={handlePhase6RoleplayComplete}
+        />
+      )}
+      {state.phase === 7 && (
         <Phase5Recap
           wrongItemIds={wrongItemIds}
           recallResults={state.recallResults}
           onScoreGain={addScore}
-          onComplete={handlePhase6Complete}
+          onComplete={handlePhase7RecapComplete}
         />
       )}
-      {state.phase === 7 && (
+      {state.phase === 8 && (
         <ResultsScreen
           gameState={state}
           totalTimeMs={totalTimeRef.current}

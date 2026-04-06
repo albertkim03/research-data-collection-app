@@ -14,9 +14,10 @@ const PHASE_NAMES: Record<number, string> = {
   2: "Explore",
   3: "Memory",
   4: "Vocab",
-  5: "Role-play",
-  6: "Recap",
-  7: "Results",
+  5: "Phrase Fever",
+  6: "Role-play",
+  7: "Recap",
+  8: "Results",
 };
 
 interface Props {

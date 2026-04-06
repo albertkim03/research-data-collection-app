@@ -7,6 +7,7 @@ import { useCountdown } from "@/hooks/useTimer";
 import { shuffle } from "@/utils/shuffle";
 import type { RecallAttempt, VocabItem } from "@/types/game";
 import SpeakingAvatar from "./SpeakingAvatar";
+import { useSoundEffect } from "@/hooks/useSoundEffect";
 
 const ROUND_CONFIGS: { promptId: string; distractorIds: string[] }[][] = [
   [
@@ -110,6 +111,7 @@ export default function Phase3Recall({ onScoreGain, onComplete }: Props) {
   const [betweenRounds, setBetweenRounds] = useState(false);
 
   const { play, isPlaying } = useAudio();
+  const { playCorrect, playWrong } = useSoundEffect();
   const { remaining: studyRemaining } = useCountdown(90, subPhase === "study", () =>
     setSubPhase("recall")
   );
@@ -154,6 +156,7 @@ export default function Phase3Recall({ onScoreGain, onComplete }: Props) {
     const speedBonus = correct && round === 2 && responseTime < SPEED_THRESHOLD_MS ? SPEED_BONUS : 0;
 
     if (correct) {
+      playCorrect();
       onScoreGain(basePoints);
       if (speedBonus > 0) {
         setSpeedBonusFlash(true);
@@ -163,6 +166,8 @@ export default function Phase3Recall({ onScoreGain, onComplete }: Props) {
         }, 600);
       }
     }
+
+    if (!correct) playWrong();
 
     const attempt: RecallAttempt = {
       trialNumber: globalTrialNum,

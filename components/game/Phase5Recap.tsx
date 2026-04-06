@@ -6,6 +6,7 @@ import { useAudio } from "@/hooks/useAudio";
 import { shuffle } from "@/utils/shuffle";
 import type { RecallAttempt, RecapAttempt } from "@/types/game";
 import SpeakingAvatar from "./SpeakingAvatar";
+import { useSoundEffect } from "@/hooks/useSoundEffect";
 
 // Static label maps — defined once outside component
 const PHRASE_LABELS: Record<string, string> = {
@@ -53,7 +54,19 @@ export default function Phase5Recap({ wrongItemIds, onScoreGain, onComplete }: P
   const [results, setResults] = useState<RecapAttempt[]>([]);
   const [pointsEarned, setPointsEarned] = useState(0);
   const resultsRef = useRef<RecapAttempt[]>([]);
-  const { play, isPlaying } = useAudio();
+  const { play, playSequence, isPlaying } = useAudio();
+  const { playCorrect, playWrong } = useSoundEffect();
+
+  // Audio to auto-play when each question first appears (index matches question array)
+  const QUESTION_AUTO_AUDIO: (string | string[])[] = [
+    "/game-mp3/game-1/audio_milk_008.mp3",
+    "/game-mp3/game-3/audio_thank_you_031.mp3",
+    ["/game-mp3/game-2/audio_one_020.mp3", "/game-mp3/game-1/audio_coffee_001.mp3",
+     "/game-mp3/game-2/audio_two_021.mp3", "/game-mp3/game-1/audio_bread_003.mp3"],
+    "/game-mp3/game-1/audio_spoon_012.mp3",
+    "/game-mp3/game-3/audio_goodbye_035.mp3",
+    "/game-mp3/game-1/audio_cake_007.mp3",
+  ];
 
   // Stable shuffled options — computed ONCE at mount, never reshuffled
   const [stableOpts] = useState(() => [
@@ -228,7 +241,17 @@ export default function Phase5Recap({ wrongItemIds, onScoreGain, onComplete }: P
       setFeedback(null);
       setSelectedId(null);
       setPointsEarned(0);
+      // Auto-play audio once when each question appears
+      const audio = QUESTION_AUTO_AUDIO[questionIndex];
+      if (audio) {
+        const t = setTimeout(() => {
+          if (Array.isArray(audio)) playSequence(audio);
+          else play(audio);
+        }, 400);
+        return () => clearTimeout(t);
+      }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [subPhase, questionIndex]);
 
   function handleAnswer(optionId: string) {
@@ -237,6 +260,8 @@ export default function Phase5Recap({ wrongItemIds, onScoreGain, onComplete }: P
     const correct = optionId === currentQuestion.correctId;
     setSelectedId(optionId);
     setFeedback(correct);
+
+    if (correct) playCorrect(); else playWrong();
 
     const basePoints = 25;
     const speedBonus = correct && responseTime < 3000 ? 10 : 0;
@@ -288,7 +313,12 @@ export default function Phase5Recap({ wrongItemIds, onScoreGain, onComplete }: P
                   className={`flex flex-col items-center p-4 rounded-xl border-2 transition-all cursor-pointer hover:shadow-md
                     ${needsReview ? "border-amber-400 bg-amber-50" : "border-gray-200 bg-white hover:border-amber-300"}`}
                 >
-                  <span className="text-4xl mb-1">{item.emoji}</span>
+                  {item.imagePath ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={item.imagePath} alt={item.english} className="w-14 h-14 object-contain mb-1" />
+                  ) : (
+                    <span className="text-4xl mb-1">{item.emoji}</span>
+                  )}
                   <span className="text-base font-bold text-amber-900">{item.russian}</span>
                   <span className="text-xs text-gray-500 italic">{item.transliteration}</span>
                   <span className="text-xs text-gray-400">{item.english}</span>
