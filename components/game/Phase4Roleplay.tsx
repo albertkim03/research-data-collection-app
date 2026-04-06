@@ -5,6 +5,7 @@ import { CAFE_ITEMS } from "@/data/vocabItems";
 import { useAudio } from "@/hooks/useAudio";
 import type { OrderAttempt } from "@/types/game";
 import SpeakingAvatar from "./SpeakingAvatar";
+import { useSoundEffect } from "@/hooks/useSoundEffect";
 
 interface OrderDef {
   id: number;
@@ -125,6 +126,7 @@ export default function Phase4Roleplay({ onScoreGain, onComplete }: Props) {
   const [isDraggingOverInventory, setIsDraggingOverInventory] = useState(false);
 
   const { playSequence, isPlaying } = useAudio();
+  const { playCorrect, playWrong } = useSoundEffect();
   const order = ORDERS[orderIndex];
 
   useEffect(() => {
@@ -250,6 +252,7 @@ export default function Phase4Roleplay({ onScoreGain, onComplete }: Props) {
       timestamp: Date.now(),
     };
     setResults((prev) => [...prev, attempt]);
+    if (correct) playCorrect(); else playWrong();
     setFeedback(correct ? "correct" : "wrong");
     setTimeout(() => setBetweenOrders(true), 1600);
   }

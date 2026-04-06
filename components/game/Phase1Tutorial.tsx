@@ -7,10 +7,11 @@ import { CAFE_ITEMS } from "@/data/vocabItems";
 const TUTORIAL_ITEMS = ["coffee", "bread", "menu"];
 
 interface Props {
-  onComplete: (discoveredIds: string[], points: number) => void;
+  onScoreGain: (pts: number) => void;
+  onComplete: (discoveredIds: string[]) => void;
 }
 
-export default function Phase1Tutorial({ onComplete }: Props) {
+export default function Phase1Tutorial({ onScoreGain, onComplete }: Props) {
   const [screen, setScreen] = useState<"welcome" | "tutorial" | "briefing">("welcome");
   const [step, setStep] = useState(0);
   const [clicked, setClicked] = useState<string[]>([]);
@@ -24,6 +25,7 @@ export default function Phase1Tutorial({ onComplete }: Props) {
     if (clicked.includes(id) || id !== TUTORIAL_ITEMS[step]) return;
     const item = CAFE_ITEMS.find((i) => i.id === id)!;
     play(item.audioPath);
+    onScoreGain(5);
     setLabelVisible(id);
     setClicked((prev) => [...prev, id]);
     setTimeout(() => {
@@ -154,7 +156,7 @@ export default function Phase1Tutorial({ onComplete }: Props) {
           ))}
         </div>
         <button
-          onClick={() => onComplete(TUTORIAL_ITEMS, 15)}
+          onClick={() => onComplete(TUTORIAL_ITEMS)}
           className="w-full bg-amber-700 hover:bg-amber-800 text-white font-bold py-3 px-6 rounded-xl text-lg transition-colors"
         >
           Begin Exploring →
