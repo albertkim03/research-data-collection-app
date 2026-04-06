@@ -46,6 +46,7 @@ export interface GameState {
   phaseStartTime: number;
   discoveredItems: string[];
   recallResults: RecallAttempt[];
+  phraseGameCorrect: number;
   orderResults: OrderAttempt[];
   recapResults: RecapAttempt[];
 }
@@ -76,6 +77,7 @@ export type GameAction =
   | { type: "DISCOVER_ITEM"; itemId: string }
   | { type: "ADD_SCORE"; points: number }
   | { type: "LOG_RECALL"; result: RecallAttempt }
+  | { type: "SET_PHRASE_CORRECT"; count: number }
   | { type: "LOG_ORDER"; result: OrderAttempt }
   | { type: "LOG_RECAP"; result: RecapAttempt }
   | { type: "RESET" };

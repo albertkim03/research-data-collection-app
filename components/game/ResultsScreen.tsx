@@ -11,7 +11,7 @@ interface Props {
 }
 
 export default function ResultsScreen({ gameState, totalTimeMs }: Props) {
-  const { score, discoveredItems, recallResults, orderResults, recapResults } = gameState;
+  const { score, discoveredItems, recallResults, phraseGameCorrect, orderResults, recapResults } = gameState;
 
   const recallCorrect = recallResults.filter((r) => r.correct).length;
   const ordersCorrect = orderResults.filter((r) => r.correct).length;
@@ -67,9 +67,10 @@ export default function ResultsScreen({ gameState, totalTimeMs }: Props) {
 
         <div className="bg-gray-50 rounded-xl p-4 space-y-3">
           <StatRow label="Explore" value={`${discoveredItems.length} / 12 items found`} />
-          <StatRow label="Memory" value={`${recallCorrect} / 12 correct (${Math.round((recallCorrect / 12) * 100)}%)`} />
-          <StatRow label="Orders" value={`${ordersCorrect} / 8 delivered`} />
-          <StatRow label="Recap" value={`${recapCorrect} / 6 correct`} />
+          <StatRow label="Memory Quiz" value={`${recallCorrect} / 12 correct (${Math.round((recallCorrect / 12) * 100)}%)`} />
+          <StatRow label="Phrase Fever" value={`${phraseGameCorrect} / 12 correct (${Math.round((phraseGameCorrect / 12) * 100)}%)`} />
+          <StatRow label="Role-play" value={`${ordersCorrect} / ${orderResults.length || 8} orders correct`} />
+          <StatRow label="Recap Quiz" value={`${recapCorrect} / 6 correct`} />
           <div className="border-t pt-3 flex justify-between text-sm text-gray-500">
             <span>Total time</span>
             <span className="font-mono">{String(totalMins).padStart(2, "0")}:{String(totalSecs).padStart(2, "0")}</span>

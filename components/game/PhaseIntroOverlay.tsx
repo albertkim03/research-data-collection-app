@@ -23,13 +23,23 @@ const PHASE_INTROS: Record<number, PhaseIntro> = {
     ],
   },
   3: {
+    icon: "📖",
+    title: "Memory Study",
+    description: "Take your time to study the café items — you'll be tested on them shortly!",
+    tips: [
+      "Click each card to flip it and hear the Russian pronunciation",
+      "You have 300 seconds — or click 'I'm Ready' when you feel confident",
+      "Pay close attention — you'll need to identify these items by ear",
+    ],
+  },
+  31: {
     icon: "🧠",
-    title: "Memory Challenge",
-    description: "Time to test what you've learned! Hear the Russian word and pick the matching café item.",
+    title: "Memory Quiz!",
+    description: "Study time is over. Now identify each café item by its Russian name!",
     tips: [
       "3 rounds, getting harder each time",
-      "Round 3 awards a speed bonus for fast answers",
-      "You can replay the audio before answering",
+      "Round 3 rewards fast answers with a speed bonus",
+      "You can replay the audio before choosing",
     ],
   },
   4: {
@@ -44,7 +54,7 @@ const PHASE_INTROS: Record<number, PhaseIntro> = {
   5: {
     icon: "🔥",
     title: "Phrase Fever!",
-    description: "A fast-paced quiz on numbers and phrases. You have just 4 seconds per question!",
+    description: "A fast-paced quiz on numbers and phrases. You have 8 seconds per question!",
     tips: [
       "Audio plays automatically — listen carefully",
       "Answer quickly for a speed bonus (+5 pts)",

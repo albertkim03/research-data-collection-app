@@ -8,7 +8,7 @@ import { shuffle } from "@/utils/shuffle";
 import SpeakingAvatar from "./SpeakingAvatar";
 
 const TOTAL_QUESTIONS = 12;
-const QUESTION_MS = 4000;
+const QUESTION_MS = 8000;
 const BASE_PTS = 10;
 const COMBO_MULT = [1, 1.5, 2, 2.5, 3] as const;
 
@@ -55,10 +55,11 @@ const RAW_QUESTIONS = [
 
 interface Props {
   onScoreGain: (pts: number) => void;
-  onComplete: () => void;
+  onComplete: (correctCount: number) => void;
+  paused?: boolean;
 }
 
-export default function Phase4PhraseGame({ onScoreGain, onComplete }: Props) {
+export default function Phase4PhraseGame({ onScoreGain, onComplete, paused = false }: Props) {
   // Shuffle options once at mount — stable for the lifetime of this component
   const [questions] = useState<FeverQ[]>(() =>
     RAW_QUESTIONS.map((q) => ({
@@ -89,9 +90,9 @@ export default function Phase4PhraseGame({ onScoreGain, onComplete }: Props) {
 
   const currentQ = questions[qIndex];
 
-  // Reset state and auto-play audio on each new question
+  // Reset state and auto-play audio on each new question, or when unpaused
   useEffect(() => {
-    if (done) return;
+    if (done || paused) return;
     setSelectedId(null);
     setFeedback(null);
     setTimeLeft(QUESTION_MS);
@@ -100,11 +101,11 @@ export default function Phase4PhraseGame({ onScoreGain, onComplete }: Props) {
     const t = setTimeout(() => play(currentQ.audioPath), 400);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [qIndex, done]);
+  }, [qIndex, done, paused]);
 
-  // 4-second countdown — auto-marks wrong at 0
+  // Countdown — pauses when overlay is open
   useEffect(() => {
-    if (feedback !== null || done) return;
+    if (feedback !== null || done || paused) return;
     if (timeLeft <= 0) {
       handleAnswer(null);
       return;
@@ -112,7 +113,7 @@ export default function Phase4PhraseGame({ onScoreGain, onComplete }: Props) {
     const t = setTimeout(() => setTimeLeft((p) => Math.max(0, p - 100)), 100);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [timeLeft, feedback, done]);
+  }, [timeLeft, feedback, done, paused]);
 
   function handleAnswer(optId: string | null) {
     if (answeredRef.current || feedback !== null) return;
@@ -189,7 +190,7 @@ export default function Phase4PhraseGame({ onScoreGain, onComplete }: Props) {
           </div>
 
           <button
-            onClick={onComplete}
+            onClick={() => onComplete(correctCount)}
             className="w-full py-4 bg-amber-600 hover:bg-amber-500 text-white font-black text-lg rounded-xl transition-colors"
           >
             Continue to Role-play →
