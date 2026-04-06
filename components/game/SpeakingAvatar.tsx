@@ -77,7 +77,7 @@ export default function SpeakingAvatar({ isSpeaking }: Props) {
 
           {/* ── LEFT EYE ──
               Avatar style: bold upper lid stroke only, no individual lashes */}
-          <ellipse cx="37" cy="47" rx="8.5" ry="6.5" fill="white" />
+          <ellipse cx="37" cy="47" rx="8.5" ry="5.9" fill="white" />
           {/* Iris — Katara's blue-grey */}
           <circle cx="37" cy="47" r="5.2" fill="#3A6A8C" />
           <circle cx="37" cy="47" r="4.6" fill="#2A5070" opacity="0.75" />
@@ -92,7 +92,7 @@ export default function SpeakingAvatar({ isSpeaking }: Props) {
           <path d="M29.5 51 Q37 54 44.5 51" stroke="#1E0C06" fill="none" strokeWidth="0.8" strokeLinecap="round" opacity="0.45" />
 
           {/* ── RIGHT EYE ── */}
-          <ellipse cx="63" cy="47" rx="8.5" ry="6.5" fill="white" />
+          <ellipse cx="63" cy="47" rx="8.5" ry="5.9" fill="white" />
           <circle cx="63" cy="47" r="5.2" fill="#3A6A8C" />
           <circle cx="63" cy="47" r="4.6" fill="#2A5070" opacity="0.75" />
           <circle cx="63" cy="47" r="2.8" fill="#0A0808" />

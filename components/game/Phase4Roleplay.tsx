@@ -91,7 +91,7 @@ const ORDERS: OrderDef[] = [
 // Counter slot positions: [left%, top%] within the counter image container
 // 6 slots in 2 rows of 3 — positioned to look natural on the counter surface
 const SLOT_POSITIONS: [number, number][] = [
-  [30, 75], [50, 75], [70, 75], [70, 50],
+  [20, 78], [40, 78], [60, 78], [80, 78],
 ];
 
 interface CounterSlot {
