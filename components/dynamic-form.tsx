@@ -43,11 +43,11 @@ type ScaleField = {
 type McqOption = { value: string; label: string; audio?: string };
 type McqField = {
   key: string;
-  type: "mcq";
-  label: string;        // question text (EN or instruction)
-  promptAudio?: string; // audio for the question stem
-  options: McqOption[]; // without “I’m not sure”
-  notSure?: boolean;    // if true, adds an “I’m not sure” choice
+  type: "mcq";                        // FIXED: Replaced typographic/smart quotes with standard quotes
+  label: string;                      // question text (EN or instruction)
+  promptAudio?: string | string[];    // one audio or a sequence to play in order
+  options: McqOption[];               // without "I'm not sure"
+  notSure?: boolean;                  // if true, adds an "I'm not sure" choice
   required?: boolean;
   help?: string;
 };
@@ -64,7 +64,8 @@ export default function DynamicForm({
 }: {
   formId: string;
   sectionNumber: number;
-  schema: { version: number; fields: Field[] };
+  // UPDATED: Added answerKey to match your JSON structure
+  schema: { version: number; fields: Field[]; answerKey?: Record<string, string> };
   initialData?: Record<string, any> | null;
   locked?: boolean;
 }) {
@@ -318,7 +319,7 @@ export default function DynamicForm({
           const val = data[mf.key];
 
           const choices: McqOption[] = mf.notSure
-            ? [...mf.options, { value: "unsure", label: "I’m not sure" }]
+            ? [...mf.options, { value: "unsure", label: "I'm not sure" }]
             : mf.options;
 
           return (
@@ -331,8 +332,10 @@ export default function DynamicForm({
               )}
 
               {mf.promptAudio && (
-                <div className="mt-1">
-                  <AudioInline src={mf.promptAudio} />
+                <div className="mt-1 flex flex-wrap gap-2">
+                  {(Array.isArray(mf.promptAudio) ? mf.promptAudio : [mf.promptAudio]).map(
+                    (src, i) => <AudioInline key={i} src={src} />
+                  )}
                 </div>
               )}
 
