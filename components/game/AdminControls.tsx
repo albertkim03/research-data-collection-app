@@ -7,7 +7,7 @@ import type { GameState } from "@/types/game";
 // Toggle this boolean to show/hide the admin controls panel.
 // Set to false before deploying to participants.
 // ─────────────────────────────────────────────────────────────
-export const SHOW_ADMIN_CONTROLS = true;
+export const SHOW_ADMIN_CONTROLS = false;
 
 const PHASE_NAMES: Record<number, string> = {
   1: "Tutorial",
